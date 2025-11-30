@@ -1,0 +1,21 @@
+{
+  "name": "SkillSprout",
+  "short_name": "SkillSprout",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#58cc02",
+  "description": "Gamified AI Learning Platform",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/616/616490.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/616/616490.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

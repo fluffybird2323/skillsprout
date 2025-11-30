@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- SEO & Metadata -->
+    <title>SkillSprout | Agentic Learning Platform</title>
+    <meta name="description" content="A next-generation AI learning platform. Generate interactive curriculums instantly.">
+    <meta name="theme-color" content="#121317">
+    
+    <!-- Open Graph / Social -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="SkillSprout - Antigravity Learning">
+    <meta property="og:description" content="Generate complete, gamified curriculums for any topic instantly. Powered by Gemini.">
+    <meta name="twitter:card" content="summary_large_image">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <script>
+      tailwind.config = {
+        darkMode: 'class', // Manual toggle
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              gravity: {
+                dark: '#121317',      // Deep Charcoal
+                light: '#FFFFFF',     // Pure White
+                surface: {
+                  dark: '#202124',    // Lighter Charcoal
+                  light: '#F8F9FC',   // Off-white/Blue-ish grey
+                },
+                border: {
+                  dark: '#3C4043',
+                  light: '#E8EAED',
+                },
+                text: {
+                  main: {
+                    dark: '#E8EAED',
+                    light: '#202124',
+                  },
+                  sub: {
+                    dark: '#9AA0A6',
+                    light: '#5F6368',
+                  }
+                },
+                blue: '#1A73E8',      // Google Blue
+                blueDark: '#8AB4F8',  // Lighter blue for dark mode text
+                accent: '#FBBC04',    // Google Yellow
+                success: '#34A853',   // Google Green
+                danger: '#EA4335',    // Google Red
+              }
+            },
+            animation: {
+              'float': 'float 10s ease-in-out infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-20px)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(registration => {
+            console.log('SW registered: ', registration);
+          }).catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
+          });
+        });
+      }
+    </script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        overscroll-behavior-y: none;
+      }
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #5F6368; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #9AA0A6; 
+      }
+      
+      .antigravity-card {
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .antigravity-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "zustand": "https://aistudiocdn.com/zustand@^5.0.8",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "canvas-confetti": "https://aistudiocdn.com/canvas-confetti@^1.9.4",
+    "zustand/": "https://aistudiocdn.com/zustand@^5.0.8/",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "next/": "https://aistudiocdn.com/next@^16.0.4/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
