@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { generateLessonContent, generateUnit, generatePathSuggestions, generateInteractiveLesson, generateResourceLesson } from '../services/gemini';
+import { generateLessonContent, generateUnit, generatePathSuggestions, generateInteractiveLesson, generateResourceLesson } from '../services/ai';
 import { Star, Lock, Check, Loader2, Plus, Trash2, BookOpen, Settings, Dumbbell, Cloud, Compass, MapPin, ArrowRight, X } from 'lucide-react';
 import { Unit, Chapter, AppState } from '../types';
 import { Button } from './ui/Button';

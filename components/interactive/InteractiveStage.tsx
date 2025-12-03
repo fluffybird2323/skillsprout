@@ -3,7 +3,7 @@ import { InteractiveWidget } from '../../types';
 import { Button } from '../ui/Button';
 import { Sliders, Shuffle, PenTool, Wand2, RefreshCcw, Upload, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { editImageWithGemini } from '../../services/gemini';
+import { editImageWithGemini } from '../../services/ai';
 import EnhancedSlider from './EnhancedSlider';
 import { CheckCircle } from 'lucide-react';
 

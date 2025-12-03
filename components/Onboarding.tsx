@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Loader2, Sparkles, Brain, X, Coffee, Zap, Flame } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useStore } from '../store/useStore';
-import { generateCourseOutline } from '../services/gemini';
+import { generateCourseOutline } from '../services/ai';
 import { AppState, CourseDepth } from '../types';
 
 export const Onboarding: React.FC = () => {

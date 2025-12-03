@@ -2,7 +2,7 @@ import { Course, Unit, LessonContent, CourseDepth } from "../types";
 import { withRetry } from "../utils/aiHelpers";
 
 // Support both local development and production Cloud Function/Run deployments
-const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT || '/api/gemini';
+const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT || '/api/ai';
 
 async function apiCall(action: string, payload: any) {
   const response = await fetch(API_ENDPOINT, {
