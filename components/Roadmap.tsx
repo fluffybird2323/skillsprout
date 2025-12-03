@@ -1,16 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { generateLessonContent, generateUnit, generatePathSuggestions, generateInteractiveLesson, generateResourceLesson } from '../services/ai';
-import { Star, Lock, Check, Loader2, Plus, Trash2, BookOpen, Settings, Dumbbell, Cloud, Compass, MapPin, ArrowRight, X } from 'lucide-react';
-import { Unit, Chapter, AppState } from '../types';
+import { Star, Lock, Check, Loader2, Plus, Trash2, BookOpen, Settings, Dumbbell, Cloud, MapPin, ArrowRight, X } from 'lucide-react';
+import { Unit, Chapter, AppState, DEFAULT_LOADER_CONFIG } from '../types';
 import { Button } from './ui/Button';
+import { LessonLoader, useLessonLoader } from './LessonLoader';
+import { lessonCache } from '../services/lessonCache';
 
 export const Roadmap: React.FC = () => {
   const store = useStore();
+  const lessonLoader = useLessonLoader();
   const [loadingChapterId, setLoadingChapterId] = useState<string | null>(null);
   const [isAddingUnit, setIsAddingUnit] = useState(false);
   const [manageMode, setManageMode] = useState(false);
-  
+  const loadingAbortRef = useRef<AbortController | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Path Selection State
   const [isPathModalOpen, setIsPathModalOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -23,6 +28,54 @@ export const Roadmap: React.FC = () => {
     item => item.courseId === store.activeCourseId && item.nextReviewDate <= Date.now()
   ).length;
 
+  // Check if user is on the last lesson of the course (for prefetching)
+  const isOnLastLesson = useCallback(() => {
+    if (!activeCourse) return false;
+    const lastUnit = activeCourse.units[activeCourse.units.length - 1];
+    if (!lastUnit) return false;
+    const completedInLastUnit = lastUnit.chapters.filter(ch => ch.status === 'completed').length;
+    const totalInLastUnit = lastUnit.chapters.length;
+    // Consider "near last" if only 1 lesson remains
+    return completedInLastUnit >= totalInLastUnit - 1;
+  }, [activeCourse]);
+
+  // Prefetch path suggestions when user reaches the last lesson
+  useEffect(() => {
+    const prefetchSuggestions = async () => {
+      if (!activeCourse || !isOnLastLesson()) return;
+
+      // Check if already prefetched
+      const cached = await lessonCache.getCachedPrefetch(activeCourse.id);
+      if (cached) {
+        store.setPrefetchedSuggestions(cached);
+        return;
+      }
+
+      try {
+        const titles = activeCourse.units.map(u => u.title);
+        const suggs = await generatePathSuggestions(activeCourse.topic, titles);
+        await lessonCache.cachePrefetch(activeCourse.id, suggs);
+        store.setPrefetchedSuggestions(suggs);
+      } catch (error) {
+        console.warn('Failed to prefetch suggestions:', error);
+      }
+    };
+
+    prefetchSuggestions();
+  }, [activeCourse, isOnLastLesson, store]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (loadingAbortRef.current) {
+        loadingAbortRef.current.abort();
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   if (!activeCourse) return null;
 
   const totalChapters = activeCourse.units.reduce((acc, unit) => acc + unit.chapters.length, 0);
@@ -30,30 +83,176 @@ export const Roadmap: React.FC = () => {
     acc + unit.chapters.filter(c => c.status === 'completed').length, 0);
   const progressPercentage = totalChapters === 0 ? 0 : Math.round((completedChapters / totalChapters) * 100);
 
+  const loadLessonWithRetry = useCallback(async (
+    unit: Unit,
+    chapter: Chapter,
+    retryCount: number = 0
+  ): Promise<boolean> => {
+    const topic = activeCourse!.topic;
+
+    // Check if aborted before starting
+    if (loadingAbortRef.current?.signal.aborted) {
+      return false;
+    }
+
+    // Determine lesson type
+    const rand = Math.random();
+    const lessonType = rand < 0.7 ? 'quiz' : rand < 0.85 ? 'interactive' : 'resource';
+
+    try {
+      // Phase: Checking cache
+      lessonLoader.updatePhase('checking-cache', 'Checking for saved content...');
+
+      // Check abort signal
+      if (loadingAbortRef.current?.signal.aborted) {
+        return false;
+      }
+
+      // Try to get from cache first
+      const cached = await lessonCache.getCachedLesson(topic, chapter.title, lessonType);
+      if (cached) {
+        lessonLoader.updatePhase('finalizing', 'Loading from cache...', true);
+        await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause for UX
+        store.setLessonContent({ ...cached, chapterId: chapter.id });
+        setLoadingChapterId(null);
+        return true;
+      }
+
+      // Phase: Generating
+      lessonLoader.updatePhase('generating', 'Generating personalized content...');
+
+      // Check abort signal before generating
+      if (loadingAbortRef.current?.signal.aborted) {
+        return false;
+      }
+
+      let content;
+      if (lessonType === 'quiz') {
+        content = await generateLessonContent(topic, chapter.title);
+      } else if (lessonType === 'interactive') {
+        content = await generateInteractiveLesson(topic, chapter.title);
+      } else {
+        content = await generateResourceLesson(topic, chapter.title);
+      }
+
+      // Check abort signal after generating
+      if (loadingAbortRef.current?.signal.aborted) {
+        return false;
+      }
+
+      // Cache the generated content
+      await lessonCache.cacheLesson(topic, chapter.title, content, lessonType);
+
+      // Phase: Finalizing
+      lessonLoader.updatePhase('finalizing', 'Almost ready...');
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      store.setLessonContent({ ...content, chapterId: chapter.id });
+      setLoadingChapterId(null);
+      return true;
+    } catch (error) {
+      console.error('Error loading lesson:', error);
+
+      // Check if aborted (don't retry if aborted)
+      if (loadingAbortRef.current?.signal.aborted) {
+        return false;
+      }
+
+      // Retry logic
+      if (retryCount < DEFAULT_LOADER_CONFIG.maxRetries) {
+        const newRetryCount = lessonLoader.incrementRetry();
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Exponential backoff
+        return loadLessonWithRetry(unit, chapter, newRetryCount);
+      }
+
+      // Max retries exceeded
+      lessonLoader.setError(
+        error instanceof Error ? error.message : 'Failed to load lesson after multiple attempts'
+      );
+      return false;
+    }
+  }, [activeCourse, lessonLoader, store]);
+
   const handleChapterClick = async (unit: Unit, chapter: Chapter) => {
     if (manageMode) return;
     if (chapter.status === 'locked') return;
-    
+
+    // Cancel any existing loading
+    if (loadingAbortRef.current) {
+      loadingAbortRef.current.abort();
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Create new abort controller
+    loadingAbortRef.current = new AbortController();
+
     setLoadingChapterId(chapter.id);
     store.startLesson(unit.id, chapter.id);
 
     try {
-      const rand = Math.random();
-      let content;
-      if (rand < 0.7) {
-         content = await generateLessonContent(activeCourse.topic, chapter.title);
-      } else if (rand < 0.85) {
-         content = await generateInteractiveLesson(activeCourse.topic, chapter.title);
-      } else {
-         content = await generateResourceLesson(activeCourse.topic, chapter.title);
+      // Initialize loading state
+      lessonLoader.initializeLoading(chapter.id, chapter.title);
+
+      // Set up timeout
+      timeoutRef.current = setTimeout(() => {
+        if (store.loadingState?.chapterId === chapter.id) {
+          lessonLoader.setTimeout();
+        }
+      }, DEFAULT_LOADER_CONFIG.timeout);
+
+      // Start loading
+      const success = await loadLessonWithRetry(unit, chapter);
+
+      // Clear timeout if successful
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
-      store.setLessonContent({ ...content, chapterId: chapter.id });
+
+      if (!success) {
+        setLoadingChapterId(null);
+      }
     } catch (error) {
-      console.error("Error loading lesson", error);
+      console.error('Error in handleChapterClick:', error);
+      // Ensure cleanup on error
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
       setLoadingChapterId(null);
-      alert("Could not load lesson.");
+      lessonLoader.setError('An unexpected error occurred. Please try again.');
     }
   };
+
+  const handleRetryLoading = useCallback(() => {
+    const state = store.loadingState;
+    if (!state?.chapterId) return;
+
+    // Find the chapter and unit
+    for (const unit of activeCourse!.units) {
+      const chapter = unit.chapters.find(ch => ch.id === state.chapterId);
+      if (chapter) {
+        // Reset and retry
+        lessonLoader.initializeLoading(chapter.id, chapter.title);
+        setLoadingChapterId(chapter.id);
+        loadLessonWithRetry(unit, chapter);
+        return;
+      }
+    }
+  }, [activeCourse, store.loadingState, lessonLoader, loadLessonWithRetry]);
+
+  const handleCancelLoading = useCallback(() => {
+    if (loadingAbortRef.current) {
+      loadingAbortRef.current.abort();
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setLoadingChapterId(null);
+    lessonLoader.cancelLoading();
+  }, [lessonLoader]);
 
   const handleReviewClick = () => {
     if (dueReviewItems > 0) store.startReviewSession();
@@ -61,11 +260,32 @@ export const Roadmap: React.FC = () => {
 
   const openPathSelector = async () => {
     setIsPathModalOpen(true);
+
+    // Check if we have prefetched suggestions
+    if (store.prefetchedSuggestions && store.prefetchedSuggestions.length > 0) {
+      setSuggestions(store.prefetchedSuggestions);
+      setLoadingSuggestions(false);
+      return;
+    }
+
+    // Check cache
+    const cached = await lessonCache.getCachedPrefetch(activeCourse.id);
+    if (cached && cached.length > 0) {
+      setSuggestions(cached);
+      store.setPrefetchedSuggestions(cached);
+      setLoadingSuggestions(false);
+      return;
+    }
+
+    // Generate new suggestions
     setLoadingSuggestions(true);
     try {
       const titles = activeCourse.units.map(u => u.title);
       const suggs = await generatePathSuggestions(activeCourse.topic, titles);
       setSuggestions(suggs);
+      // Cache for future use
+      await lessonCache.cachePrefetch(activeCourse.id, suggs);
+      store.setPrefetchedSuggestions(suggs);
     } catch (e) {
       setSuggestions(["Advanced Concepts", "Practical Applications", "History & Theory"]);
     } finally {
@@ -81,6 +301,12 @@ export const Roadmap: React.FC = () => {
     try {
         const newUnit = await generateUnit(activeCourse.topic, activeCourse.units.length, focus);
         store.appendUnit(newUnit);
+
+        // Clear prefetched suggestions since the course structure changed
+        store.setPrefetchedSuggestions(null);
+        // Invalidate the cached suggestions
+        await lessonCache.cachePrefetch(activeCourse.id, []);
+
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     } catch (e) {
         alert("Failed to generate unit.");
@@ -173,6 +399,31 @@ export const Roadmap: React.FC = () => {
              <div className="relative z-10 text-8xl opacity-10 grayscale group-hover:grayscale-0 transition-all duration-500">{activeCourse.icon}</div>
           </div>
 
+          {/* Lesson Loading Indicator */}
+          {loadingChapterId && (
+            <div className="mb-8 bg-gravity-blue/10 dark:bg-gravity-blue/20 border border-gravity-blue/30 rounded-2xl p-8 text-center animate-pulse">
+              <div className="flex items-center justify-center mb-4">
+                <Loader2 className="w-8 h-8 animate-spin text-gravity-blue mr-3" />
+                <h3 className="text-xl font-bold text-gravity-blue">Loading Lesson</h3>
+              </div>
+              {activeCourse.units
+                .flatMap(unit => unit.chapters)
+                .find(chapter => chapter.id === loadingChapterId)?.title && (
+                <p className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark font-medium">
+                  Preparing: {activeCourse.units
+                    .flatMap(unit => unit.chapters)
+                    .find(chapter => chapter.id === loadingChapterId)?.title
+                  }
+                </p>
+              )}
+              <div className="flex justify-center space-x-1 mt-4">
+                <div className="w-2 h-2 bg-gravity-blue rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                <div className="w-2 h-2 bg-gravity-blue rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-2 h-2 bg-gravity-blue rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+              </div>
+            </div>
+          )}
+
           {/* Controls */}
           <div className="flex justify-between items-center mb-8">
              <div className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark font-bold uppercase tracking-[0.2em] text-xs">Curriculum Path</div>
@@ -196,7 +447,7 @@ export const Roadmap: React.FC = () => {
           )}
 
           {/* Units */}
-          <div className="space-y-16 pb-40">
+          <div className="space-y-16 pb-64 relative z-10">
             {activeCourse.units.map((unit, unitIdx) => (
               <div key={unit.id} className="relative">
                 {/* Unit Header */}
@@ -230,9 +481,9 @@ export const Roadmap: React.FC = () => {
                     const isLoading = loadingChapterId === chapter.id;
 
                     return (
-                      <div 
+                      <div
                         key={chapter.id}
-                        className="relative group"
+                        className={`relative group ${isLoading ? 'z-40' : ''}`}
                         style={{ transform: `translateX(${offset})` }}
                       >
                         <button
@@ -268,13 +519,22 @@ export const Roadmap: React.FC = () => {
                            )}
                         </button>
                         
-                        {!manageMode && (
+                        {/* Hover tooltip - hide when loading */}
+                        {!manageMode && !isLoading && (
                           <div className={`
                             absolute left-1/2 -translate-x-1/2 -top-12 bg-gravity-surface-light dark:bg-gravity-surface-dark border border-gravity-border-light dark:border-gravity-border-dark
                             px-4 py-2 rounded-lg text-xs font-bold text-gravity-text-main-light dark:text-gravity-text-main-dark whitespace-nowrap shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20
                           `}>
                             {chapter.title}
                           </div>
+                        )}
+
+                        {/* Loading popup - appears below the chapter button */}
+                        {isLoading && store.loadingState && (
+                          <LessonLoader
+                            onRetry={handleRetryLoading}
+                            onCancel={handleCancelLoading}
+                          />
                         )}
                       </div>
                     );
@@ -286,10 +546,10 @@ export const Roadmap: React.FC = () => {
         </div>
 
         {/* Cloud Barrier - Antigravity Style */}
-        <div className="absolute bottom-0 left-0 right-0 h-[400px] overflow-hidden pointer-events-none z-20 select-none">
-            <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-gravity-light dark:from-gravity-dark via-gravity-light/95 dark:via-gravity-dark/95 to-transparent z-10"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-[400px] overflow-hidden pointer-events-none z-5 select-none">
+            <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-gravity-light dark:from-gravity-dark via-gravity-light/95 dark:via-gravity-dark/95 to-transparent z-5"></div>
             
-            <div className="absolute bottom-0 left-0 right-0 flex justify-center items-end pointer-events-auto translate-y-12 z-20">
+            <div className="absolute bottom-0 left-0 right-0 flex justify-center items-end pointer-events-auto translate-y-12 z-5">
                 <div className="relative w-full max-w-4xl h-[300px] flex flex-col items-center justify-end pb-24">
                     <div className="mb-6 opacity-50">
                         <Lock className="w-8 h-8 text-gravity-text-sub-light dark:text-gravity-text-sub-dark" />

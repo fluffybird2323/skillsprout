@@ -2,6 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Gravity Theme CSS Variables */
+:root {
+  --gravity-light: #ffffff;
+  --gravity-dark: #121317;
+  --gravity-surface-light: #f8f9fa;
+  --gravity-surface-dark: #1a1b1f;
+  --gravity-border-light: #e5e7eb;
+  --gravity-border-dark: #2a2b30;
+  --gravity-text-main-light: #111827;
+  --gravity-text-main-dark: #f9fafb;
+  --gravity-text-sub-light: #6b7280;
+  --gravity-text-sub-dark: #9ca3af;
+  --gravity-blue: #3b82f6;
+  --gravity-accent: #f59e0b;
+  --gravity-danger: #ef4444;
+  --gravity-success: #10b981;
+}
+
+.dark {
+  --gravity-light: #121317;
+  --gravity-dark: #ffffff;
+  --gravity-surface-light: #1a1b1f;
+  --gravity-surface-dark: #f8f9fa;
+  --gravity-border-light: #2a2b30;
+  --gravity-border-dark: #e5e7eb;
+  --gravity-text-main-light: #f9fafb;
+  --gravity-text-main-dark: #111827;
+  --gravity-text-sub-light: #9ca3af;
+  --gravity-text-sub-dark: #6b7280;
+  --gravity-blue: #3b82f6;
+  --gravity-accent: #f59e0b;
+  --gravity-danger: #ef4444;
+  --gravity-success: #10b981;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

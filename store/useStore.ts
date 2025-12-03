@@ -1,19 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Course, Unit, Chapter, AppState, LessonContent, ReviewItem, Theme } from '../types';
+import { Course, Unit, AppState, LessonContent, ReviewItem, Theme, LoadingState } from '../types';
 
 interface GameState {
   appState: AppState;
   courses: Course[];
   activeCourseId: string | null;
   theme: Theme;
-  
+
   // User Profile
   xp: number;
   streak: number;
   hearts: number;
   lastStudyDate: number | null;
-  
+
   // Session State
   currentLesson: LessonContent | null;
   activeUnitId: string | null;
@@ -21,13 +21,17 @@ interface GameState {
   srsItems: ReviewItem[];
   isReviewSession: boolean;
 
+  // Loading State
+  loadingState: LoadingState | null;
+  prefetchedSuggestions: string[] | null;
+
   // Actions
   setAppState: (state: AppState) => void;
   toggleTheme: () => void;
   addCourse: (course: Course) => void;
   switchCourse: (courseId: string) => void;
   deleteCourse: (courseId: string) => void;
-  
+
   // Course Management
   deleteUnit: (unitId: string) => void;
   appendUnit: (unit: Unit) => void;
@@ -37,10 +41,15 @@ interface GameState {
   startReviewSession: () => void;
   setLessonContent: (content: LessonContent) => void;
   completeLesson: (stars: 0 | 1 | 2 | 3) => void;
-  
+
+  // Loading State Management
+  setLoadingState: (state: LoadingState | null) => void;
+  updateLoadingProgress: (phase: LoadingState['phase'], progress: number, message: string) => void;
+  setPrefetchedSuggestions: (suggestions: string[] | null) => void;
+
   // SRS
   processAnswer: (questionId: string, isCorrect: boolean) => void;
-  
+
   // Mechanics
   loseHeart: () => void;
   resetHearts: () => void;
@@ -63,6 +72,10 @@ export const useStore = create<GameState>()(
       activeChapterId: null,
       srsItems: [],
       isReviewSession: false,
+
+      // Loading State
+      loadingState: null,
+      prefetchedSuggestions: null,
 
       setAppState: (state) => set({ appState: state }),
       
@@ -110,8 +123,26 @@ export const useStore = create<GameState>()(
 
       appendUnit: (unit) => set((state) => {
         if (!state.activeCourseId) return state;
-        const newCourses = state.courses.map(c => 
-          c.id === state.activeCourseId ? { ...c, units: [...c.units, unit] } : c
+
+        const course = state.courses.find(c => c.id === state.activeCourseId);
+        if (!course) return state;
+
+        // Check if the last unit's chapters are all completed
+        const lastUnit = course.units[course.units.length - 1];
+        const lastUnitComplete = lastUnit && lastUnit.chapters.every(ch => ch.status === 'completed');
+
+        // If last unit is complete, unlock the first chapter of the new unit
+        const unitToAppend = lastUnitComplete && unit.chapters.length > 0
+          ? {
+              ...unit,
+              chapters: unit.chapters.map((ch, idx) =>
+                idx === 0 ? { ...ch, status: 'active' as const } : ch
+              ),
+            }
+          : unit;
+
+        const newCourses = state.courses.map(c =>
+          c.id === state.activeCourseId ? { ...c, units: [...c.units, unitToAppend] } : c
         );
         return { courses: newCourses, appState: AppState.ROADMAP };
       }),
@@ -149,8 +180,19 @@ export const useStore = create<GameState>()(
 
       setLessonContent: (content) => set({
         currentLesson: content,
-        appState: AppState.LESSON_ACTIVE
+        appState: AppState.LESSON_ACTIVE,
+        loadingState: null, // Clear loading state when lesson is ready
       }),
+
+      setLoadingState: (loadingState) => set({ loadingState }),
+
+      updateLoadingProgress: (phase, progress, message) => set((state) => ({
+        loadingState: state.loadingState
+          ? { ...state.loadingState, phase, progress, message }
+          : null,
+      })),
+
+      setPrefetchedSuggestions: (suggestions) => set({ prefetchedSuggestions: suggestions }),
 
       processAnswer: (questionId, isCorrect) => set((state) => {
         if (!state.currentLesson) return state;

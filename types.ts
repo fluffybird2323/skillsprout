@@ -98,3 +98,38 @@ export enum AppState {
 }
 
 export type Theme = 'light' | 'dark';
+
+// Loading state types for progressive loading
+export type LoadingPhase =
+  | 'initializing'
+  | 'checking-cache'
+  | 'generating'
+  | 'finalizing'
+  | 'complete'
+  | 'error'
+  | 'timeout';
+
+export interface LoadingState {
+  phase: LoadingPhase;
+  progress: number; // 0-100
+  message: string;
+  startTime: number;
+  chapterId: string | null;
+  chapterTitle: string | null;
+  retryCount: number;
+  error?: string;
+  isCached?: boolean;
+}
+
+export interface LessonLoaderConfig {
+  timeout: number; // ms before showing timeout warning
+  maxRetries: number;
+  slowThreshold: number; // ms before showing "taking longer than usual"
+}
+
+// Default loader configuration
+export const DEFAULT_LOADER_CONFIG: LessonLoaderConfig = {
+  timeout: 30000, // 30 seconds
+  maxRetries: 3,
+  slowThreshold: 10000, // 10 seconds
+};

@@ -12,6 +12,12 @@ export const ResourceStage: React.FC<ResourceStageProps> = ({ config, onComplete
   const [canContinue, setCanContinue] = useState(false);
   const [timer, setTimer] = useState(10);
 
+  // Reset timer when config changes (new lesson)
+  useEffect(() => {
+    setTimer(10);
+    setCanContinue(false);
+  }, [config]);
+
   useEffect(() => {
     if (timer > 0) {
       const interval = setInterval(() => {

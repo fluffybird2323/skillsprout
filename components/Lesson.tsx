@@ -109,7 +109,7 @@ export const Lesson: React.FC = () => {
   }
 
   if (stage === 'resource' && currentLesson.resourceConfig) {
-     return <ResourceStage config={currentLesson.resourceConfig} onComplete={() => setStage('quiz')} />;
+     return <ResourceStage key={currentLesson.chapterId} config={currentLesson.resourceConfig} onComplete={() => setStage('quiz')} />;
   }
 
   if (stage === 'interactive' && currentLesson.interactiveConfig) {
@@ -189,6 +189,27 @@ export const Lesson: React.FC = () => {
                   autoFocus
                 />
              </div>
+          ) : question.type === 'true-false' ? (
+            ['True', 'False'].map((option, idx) => (
+              <div 
+                key={idx}
+                onClick={() => status === 'idle' && setSelectedOption(option)}
+                className={`
+                  p-6 border-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center justify-between group shadow-sm
+                  ${selectedOption === option 
+                    ? 'bg-gravity-blue/5 border-gravity-blue text-gravity-blue' 
+                    : 'bg-gravity-surface-light dark:bg-gravity-surface-dark border-gravity-border-light dark:border-gravity-border-dark hover:bg-gray-50 dark:hover:bg-gray-800 text-gravity-text-main-light dark:text-gravity-text-main-dark'}
+                  ${status !== 'idle' && 'cursor-default'}
+                `}
+              >
+                <span className="font-semibold text-lg">{option}</span>
+                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ml-4
+                  ${selectedOption === option ? 'border-gravity-blue bg-gravity-blue' : 'border-gravity-text-sub-light dark:border-gravity-text-sub-dark'}
+                `}>
+                  {selectedOption === option && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+              </div>
+            ))
           ) : (
             question.options?.map((option, idx) => (
               <div 

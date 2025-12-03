@@ -1,12 +1,12 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
+import { Viewport } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
   title: 'SkillSprout | Agentic Learning Platform',
   description: 'A next-generation AI learning platform. Generate interactive curriculums instantly.',
-  themeColor: '#121317',
   openGraph: {
     type: 'website',
     title: 'SkillSprout - Antigravity Learning',
@@ -15,6 +15,10 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image',
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#121317',
 }
 
 export default function RootLayout({
