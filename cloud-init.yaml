@@ -1,0 +1,77 @@
+#cloud-config
+
+# Cloud-init script for deploying SkillSprout on Oracle Cloud Ampere (ARM64)
+# Use with Ubuntu Canonical image on aarch64 architecture
+# Updated for Groq + Gemini dual-provider setup
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - git
+  - curl
+
+users:
+  - name: skillsprout
+    shell: /bin/bash
+    groups: [sudo]
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+
+write_files:
+  - path: /etc/systemd/system/skillsprout.service
+    content: |
+      [Unit]
+      Description=SkillSprout Next.js App
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=skillsprout
+      WorkingDirectory=/home/skillsprout/app
+      ExecStart=/home/skillsprout/.nvm/versions/node/v20.18.0/bin/node /home/skillsprout/.nvm/versions/node/v20.18.0/bin/npm start
+      Restart=on-failure
+      RestartSec=10
+      Environment=NODE_ENV=production
+      Environment=PORT=3000
+      EnvironmentFile=/home/skillsprout/app/.env.local
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /home/skillsprout/app/.env.local
+    content: |
+      # Groq API Key (Primary - Free Tier)
+      # Get from: https://console.groq.com/keys
+      GROQ_API_KEY=your_groq_api_key_here
+
+      # Google Gemini API Key (Fallback - Free Tier)
+      # Get from: https://aistudio.google.com/app/apikey
+      GEMINI_API_KEY=your_gemini_api_key_here
+
+      # API Endpoint
+      NEXT_PUBLIC_API_ENDPOINT=/api/ai
+
+      # Optional: Paid Search APIs for enhanced references
+      # BRAVE_SEARCH_API_KEY=
+      # SERPER_API_KEY=
+
+runcmd:
+  # Install Node.js via nvm (ARM64 compatible)
+  - sudo -u skillsprout bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash'
+  - sudo -u skillsprout bash -c 'export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm install 20'
+
+  # Clone repo (UPDATE THIS URL WITH YOUR REPO)
+  - sudo -u skillsprout git clone https://github.com/YOUR_USERNAME/skillz.git /home/skillsprout/app
+
+  # Install dependencies and build
+  - sudo -u skillsprout bash -c 'cd /home/skillsprout/app && export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && npm install && npm run build'
+
+  # Start service
+  - systemctl daemon-reload
+  - systemctl enable skillsprout
+  - systemctl start skillsprout
+
+  # Open firewall port
+  - iptables -I INPUT -p tcp --dport 3000 -j ACCEPT
+
+final_message: "SkillSprout deployed! Update /home/skillsprout/app/.env.local with your API keys, then: sudo systemctl restart skillsprout"

@@ -1,22 +1,115 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
+import { generateWithGroq } from '../../../services/groqClient';
 import { cleanAndParseJSON } from '../../../utils/aiHelpers';
-import { CourseDepth, WidgetType } from '../../../types';
+import { CourseDepth } from '../../../types';
+import {
+  detectTopicCategory,
+  getLessonTemplate,
+  generateIntroVariation,
+  selectQuestionTypes,
+  getQuestionCount,
+  selectWidgetType,
+  TopicCategory,
+  SearchResult,
+  RAGContext,
+  ResourceLink,
+} from '../../../services/webSearch';
+import {
+  trackModelCall,
+  shouldAllowCall,
+  generateCacheKey,
+  shouldCacheResult,
+  estimateTokens,
+  type ModelCallPurpose,
+} from '../../../services/modelManager';
 
-// Initialize OpenAI client for OpenRouter
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    "HTTP-Referer": "https://skillsprout.app", // Optional: For OpenRouter rankings
-    "X-Title": "SkillSprout", // Optional: For OpenRouter rankings
-  }
+// Initialize Google Gemini AI (fallback only)
+const genAI = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || '',
 });
 
-const MODEL_NAME = 'x-ai/grok-4.1-fast:free'; // As requested by user
+// Fallback Gemini model when Groq fails
+const GEMINI_FALLBACK_MODEL = 'gemini-2.0-flash-exp';
+
+// Track model failures to avoid repeatedly trying broken models
+const modelFailures = new Map<string, number>();
+const FAILURE_THRESHOLD = 3;
+
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute window
+const MAX_REQUESTS_PER_WINDOW = 10; // Max 10 requests per minute
+
+// Track requests per IP with timestamps
+const requestTracker = new Map<string, number[]>();
+
+// Clean up old entries periodically
+setInterval(() => {
+  const cutoff = Date.now() - RATE_LIMIT_WINDOW;
+  for (const [ip, timestamps] of requestTracker.entries()) {
+    const validTimestamps = timestamps.filter(t => t > cutoff);
+    if (validTimestamps.length === 0) {
+      requestTracker.delete(ip);
+    } else {
+      requestTracker.set(ip, validTimestamps);
+    }
+  }
+}, RATE_LIMIT_WINDOW);
+
+// Model selection: Groq (primary) or Gemini (fallback)
+type ModelProvider = 'groq' | 'gemini';
+
+function getModelProvider(retryCount: number = 0): ModelProvider {
+  // Use Groq on first try
+  if (retryCount === 0) {
+    return 'groq';
+  }
+
+  // Fallback to Gemini on retry
+  return 'gemini';
+}
+
+// Record model failure
+function recordModelFailure(model: string) {
+  const current = modelFailures.get(model) || 0;
+  modelFailures.set(model, current + 1);
+  console.warn(`Model ${model} failure count: ${current + 1}`);
+}
+
+// Optional paid search APIs (if configured, used as primary for better results)
+const BRAVE_SEARCH_API_KEY = process.env.BRAVE_SEARCH_API_KEY;
+const SERPER_API_KEY = process.env.SERPER_API_KEY;
+
+// Note: RAG context caching is done on frontend (IndexedDB) to reduce backend load
+// Backend only performs searches and returns results for frontend to cache
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limiting check
+    const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    const now = Date.now();
+    const windowStart = now - RATE_LIMIT_WINDOW;
+    
+    // Get or create request history for this IP
+    let requestHistory = requestTracker.get(clientIP) || [];
+    requestHistory = requestHistory.filter(timestamp => timestamp > windowStart);
+    
+    // Check if rate limit exceeded
+    if (requestHistory.length >= MAX_REQUESTS_PER_WINDOW) {
+      return NextResponse.json(
+        { 
+          error: 'Rate limit exceeded: free-models-per-min.',
+          code: 429,
+          retryAfter: Math.ceil((requestHistory[0] + RATE_LIMIT_WINDOW - now) / 1000)
+        }, 
+        { status: 429 }
+      );
+    }
+    
+    // Record this request
+    requestHistory.push(now);
+    requestTracker.set(clientIP, requestHistory);
+    
     const body = await req.json();
     const { action, payload } = body;
 
@@ -35,15 +128,30 @@ export async function POST(req: NextRequest) {
       case 'generateLessonContent':
         result = await handleGenerateLessonContent(payload.topic, payload.chapterTitle);
         break;
+      case 'generateLessonOptimized':
+        // Route to appropriate handler based on lesson type
+        const lessonType = payload.lessonType || 'quiz';
+        if (lessonType === 'resource') {
+          result = await handleGenerateResourceLesson(payload.topic, payload.chapterTitle);
+        } else if (lessonType === 'interactive') {
+          result = await handleGenerateInteractiveLesson(payload.topic, payload.chapterTitle);
+        } else {
+          result = await handleGenerateLessonContent(payload.topic, payload.chapterTitle);
+        }
+        break;
       case 'generateResourceLesson':
         result = await handleGenerateResourceLesson(payload.topic, payload.chapterTitle);
         break;
       case 'generateInteractiveLesson':
         result = await handleGenerateInteractiveLesson(payload.topic, payload.chapterTitle);
         break;
+      case 'searchWeb':
+        result = await handleWebSearch(payload.query);
+        break;
+      case 'generateUnitReferences':
+        result = await handleGenerateUnitReferences(payload.topic, payload.unitTitle, payload.chapterTitles);
+        break;
       case 'editImageWithGemini':
-        // Image editing is not directly supported by text-generation models on OpenRouter in the same way
-        // We'll return an error or mock for now
         throw new Error("Image editing not supported with current model");
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
@@ -60,235 +168,912 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// --- Logic Handlers ---
+// --- Web Search RAG Functions ---
 
-async function generateWithOpenAI(prompt: string, systemInstruction: string = "You are a helpful AI assistant.") {
-  const completion = await openai.chat.completions.create({
-    model: MODEL_NAME,
-    messages: [
-      { role: "system", content: systemInstruction },
-      { role: "user", content: prompt }
-    ],
-    // Some models support json_object, but not all. Grok is smart enough with prompt engineering.
-    // We'll force JSON in the prompt.
+// Serper (Google Search) - optional paid API for better results
+async function searchSerper(query: string): Promise<SearchResult[]> {
+  if (!SERPER_API_KEY) return [];
+
+  try {
+    const response = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': SERPER_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ q: query, num: 5 }),
+    });
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return (data.organic || []).map((result: any) => ({
+      title: result.title,
+      url: result.link,
+      snippet: result.snippet,
+      source: new URL(result.link).hostname.replace('www.', ''),
+      publishedDate: result.date,
+    }));
+  } catch (e) {
+    console.warn('Serper search failed:', e);
+    return [];
+  }
+}
+
+// Brave Search - optional paid API
+async function searchBrave(query: string): Promise<SearchResult[]> {
+  if (!BRAVE_SEARCH_API_KEY) return [];
+
+  try {
+    const response = await fetch(
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`,
+      {
+        headers: {
+          'Accept': 'application/json',
+          'X-Subscription-Token': BRAVE_SEARCH_API_KEY,
+        },
+      }
+    );
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return (data.web?.results || []).map((result: any) => ({
+      title: result.title,
+      url: result.url,
+      snippet: result.description,
+      source: new URL(result.url).hostname.replace('www.', ''),
+      publishedDate: result.age,
+    }));
+  } catch (e) {
+    console.warn('Brave search failed:', e);
+    return [];
+  }
+}
+
+// Wikipedia API - completely free
+async function searchWikipedia(query: string): Promise<SearchResult[]> {
+  try {
+    // Search for articles
+    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=3`;
+    const searchResponse = await fetch(searchUrl);
+
+    if (!searchResponse.ok) return [];
+
+    const searchData = await searchResponse.json();
+    const results: SearchResult[] = [];
+
+    for (const item of searchData.query?.search || []) {
+      // Get extract for each article
+      const extractUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=true&explaintext=true&titles=${encodeURIComponent(item.title)}&format=json&origin=*`;
+
+      try {
+        const extractResponse = await fetch(extractUrl);
+        const extractData = await extractResponse.json();
+        const pages = extractData.query?.pages || {};
+        const page = Object.values(pages)[0] as any;
+
+        if (page && page.extract) {
+          results.push({
+            title: item.title,
+            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/ /g, '_'))}`,
+            snippet: page.extract.slice(0, 500),
+            source: 'Wikipedia',
+          });
+        }
+      } catch (e) {
+        // Skip this result if extract fails
+      }
+    }
+
+    return results;
+  } catch (e) {
+    console.warn('Wikipedia search failed:', e);
+    return [];
+  }
+}
+
+// DuckDuckGo Instant Answer API - free, no API key needed
+async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
+  try {
+    const response = await fetch(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`
+    );
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const results: SearchResult[] = [];
+
+    // Abstract (main result)
+    if (data.Abstract && data.AbstractText) {
+      results.push({
+        title: data.Heading || query,
+        url: data.AbstractURL || `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+        snippet: data.AbstractText.slice(0, 500),
+        source: data.AbstractSource || 'DuckDuckGo',
+      });
+    }
+
+    // Related topics
+    for (const topic of (data.RelatedTopics || []).slice(0, 3)) {
+      if (topic.Text && topic.FirstURL) {
+        results.push({
+          title: topic.Text.split(' - ')[0] || topic.Text.slice(0, 50),
+          url: topic.FirstURL,
+          snippet: topic.Text,
+          source: 'DuckDuckGo',
+        });
+      }
+    }
+
+    return results;
+  } catch (e) {
+    console.warn('DuckDuckGo search failed:', e);
+    return [];
+  }
+}
+
+// Note: Removed fake WikiHow URL generation to prevent hallucinated links
+
+// Combine all sources - paid APIs first (if configured), then free fallbacks
+async function performWebSearch(query: string): Promise<SearchResult[]> {
+  const allResults: SearchResult[] = [];
+
+  // Try paid APIs first if configured (better quality results)
+  if (SERPER_API_KEY || BRAVE_SEARCH_API_KEY) {
+    const [serperResults, braveResults] = await Promise.all([
+      searchSerper(query),
+      searchBrave(query),
+    ]);
+    allResults.push(...serperResults);
+    allResults.push(...braveResults);
+  }
+
+  // Always add free sources for additional context
+  const [wikiResults, ddgResults] = await Promise.all([
+    searchWikipedia(query),
+    searchDuckDuckGo(query),
+  ]);
+
+  allResults.push(...wikiResults);
+  allResults.push(...ddgResults);
+
+  // Only use real search results - no fake URL generation
+
+  // Deduplicate by URL
+  const seen = new Set<string>();
+  return allResults.filter(r => {
+    if (seen.has(r.url)) return false;
+    seen.add(r.url);
+    return true;
   });
+}
 
-  return cleanAndParseJSON(completion.choices[0].message.content || "{}");
+// Build RAG context - no server-side caching, frontend handles caching via IndexedDB
+async function buildRAGContext(topic: string, chapterTitle: string): Promise<RAGContext | null> {
+  // Perform search with topic context (uses Wikipedia, DuckDuckGo)
+  const query = `${topic} ${chapterTitle}`;
+  const allResults = await performWebSearch(query);
+
+  if (allResults.length === 0) {
+    return null;
+  }
+
+  // Deduplicate by URL
+  const uniqueResults = allResults.filter((result, index, self) =>
+    index === self.findIndex(r => r.url === result.url)
+  ).slice(0, 5);
+
+  // Extract facts using AI
+  const factsPrompt = `Based on these search snippets about "${chapterTitle}" in ${topic}, extract 3-5 interesting, specific facts:
+
+${uniqueResults.map(r => `- ${r.snippet}`).join('\n')}
+
+Return ONLY valid JSON:
+{
+  "facts": ["fact 1", "fact 2", "fact 3"],
+  "summary": "A brief 2-sentence summary of the key concept"
+}`;
+
+  let facts: string[] = [];
+  let summary = '';
+
+  try {
+    const factData = await generateWithAI(
+      factsPrompt,
+      'You extract facts from text. Output only valid JSON.',
+      0,
+      'fact-extraction',
+      { topic, chapterTitle }
+    );
+    facts = factData.facts || [];
+    summary = factData.summary || '';
+  } catch (e) {
+    console.warn('Fact extraction failed:', e);
+    facts = uniqueResults.slice(0, 3).map(r => r.snippet.slice(0, 100));
+    summary = uniqueResults[0]?.snippet || '';
+  }
+
+  // Categorize resources
+  const resources: ResourceLink[] = uniqueResults.map(r => ({
+    title: r.title,
+    url: r.url,
+    type: categorizeResource(r.url, r.title),
+    source: r.source,
+    description: r.snippet,
+  }));
+
+  const context: RAGContext = {
+    query: `${topic} ${chapterTitle}`,
+    results: uniqueResults,
+    summary,
+    facts,
+    resources,
+    timestamp: Date.now(),
+  };
+
+  return context;
+}
+
+function categorizeResource(url: string, title: string): ResourceLink['type'] {
+  const urlLower = url.toLowerCase();
+  const titleLower = title.toLowerCase();
+
+  if (urlLower.includes('youtube.com') || urlLower.includes('vimeo.com') || titleLower.includes('video')) {
+    return 'video';
+  }
+  if (urlLower.includes('docs.') || urlLower.includes('documentation') || urlLower.includes('api.')) {
+    return 'documentation';
+  }
+  if (urlLower.includes('tutorial') || titleLower.includes('tutorial') || titleLower.includes('how to')) {
+    return 'tutorial';
+  }
+  if (urlLower.includes('arxiv.org') || urlLower.includes('nature.com') || urlLower.includes('research')) {
+    return 'research';
+  }
+  if (urlLower.includes('interactive') || urlLower.includes('playground') || urlLower.includes('codepen')) {
+    return 'interactive';
+  }
+  return 'article';
+}
+
+async function handleWebSearch(query: string) {
+  const results = await performWebSearch(query);
+  return { results };
+}
+
+// --- Core Generation Functions ---
+
+async function generateWithAI(
+  prompt: string,
+  systemInstruction: string = "You are a helpful AI assistant.",
+  retryCount: number = 0,
+  purpose?: ModelCallPurpose,
+  metadata?: Record<string, any>
+): Promise<any> {
+  // Determine which provider to use
+  const provider = getModelProvider(retryCount);
+
+  // Track this model call
+  if (purpose && retryCount === 0) {
+    const fullPrompt = `${systemInstruction}\n\n${prompt}`;
+    trackModelCall({
+      purpose,
+      timestamp: Date.now(),
+      topic: metadata?.topic,
+      cacheKey: metadata?.cacheKey,
+      shouldCache: shouldCacheResult(purpose),
+      estimatedTokens: estimateTokens(fullPrompt),
+    });
+  }
+
+  try {
+    let text: string;
+
+    if (provider === 'groq') {
+      // Use Groq (primary)
+      console.log(`[Model] Groq (random) | Purpose: ${purpose || 'untracked'}`);
+      text = await generateWithGroq(prompt, systemInstruction, purpose);
+    } else {
+      // Use Gemini (fallback)
+      console.log(`[Model] Gemini ${GEMINI_FALLBACK_MODEL} | Purpose: ${purpose || 'untracked'}`);
+
+      const result = await Promise.race([
+        genAI.models.generateContent({
+          model: GEMINI_FALLBACK_MODEL,
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: `${systemInstruction}\n\n${prompt}` }]
+            }
+          ],
+          config: {
+            temperature: 0.7,
+            maxOutputTokens: 8192,
+          }
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout after 30s')), 30000)
+        )
+      ]) as any;
+
+      // Extract text from Gemini response
+      if (result.candidates && result.candidates.length > 0) {
+        const candidate = result.candidates[0];
+        if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+          text = candidate.content.parts[0].text || '{}';
+        } else {
+          text = '{}';
+        }
+      } else {
+        text = '{}';
+      }
+    }
+
+    console.log(`[Model] Response: ${text.length} chars | Provider: ${provider} | Purpose: ${purpose || 'untracked'}`);
+
+    return cleanAndParseJSON(text);
+  } catch (error: any) {
+    console.error(`[Model] ${provider} error:`, error.message, error.code);
+
+    // Record the failure
+    recordModelFailure(provider);
+
+    // If this was Groq and it failed, retry with Gemini
+    if (retryCount === 0 && provider === 'groq') {
+      console.warn(`[Model] Groq failed, retrying with Gemini fallback`);
+      return generateWithAI(prompt, systemInstruction, 1, purpose, metadata);
+    }
+
+    // If fallback also failed, throw the error
+    console.error(`[Model] Generation failed with ${provider}:`, error);
+    throw new Error(`AI generation failed: ${error.message || 'Unknown error'}`);
+  }
 }
 
 async function handleGenerateCourseOutline(topic: string, depth: CourseDepth) {
+  // Detect topic category for smarter curriculum design
+  const category = detectTopicCategory(topic);
+
   let depthInstruction = "";
   let structureInstruction = "";
-  
+
   switch (depth) {
     case 'casual':
-      depthInstruction = "Target Audience: Curious beginner. Goal: Broad overview.";
-      structureInstruction = "Create exactly 2 Units. Unit 1: 'The Basics'. Unit 2: 'Common Applications'. Keep chapters minimal (3 per unit).";
+      depthInstruction = "Target Audience: Curious beginner. Goal: Broad overview and practical understanding.";
+      structureInstruction = "Create exactly 2 Units. Keep chapters minimal (3 per unit). Focus on the most essential, engaging aspects.";
       break;
     case 'serious':
-      depthInstruction = "Target Audience: University student. Goal: Solid competency.";
-      structureInstruction = "Create a standard textbook structure with 8-12 Units. Start with Foundations, move to Core Concepts, then Advanced Theory, and finally Real-world Application. The first 2 units should be introductory and accessible, ramping up difficulty significantly by Unit 4.";
+      depthInstruction = "Target Audience: Dedicated learner. Goal: Solid competency and practical application.";
+      structureInstruction = "Create 8-12 Units. Start with Foundations, build through Core Concepts, add Practical Applications, and end with Advanced topics. First 2 units should be accessible, ramping up significantly by Unit 4.";
       break;
     case 'obsessed':
-      depthInstruction = "Target Audience: Expert/PhD candidate. Goal: Total Mastery.";
-      structureInstruction = "Create a massive, year-long curriculum with 20+ Units. Cover History, Theoretical Frameworks, Core Mechanics, Edge Cases, Niche Applications, and Future Trends. Detailed and exhaustive.";
+      depthInstruction = "Target Audience: Expert-track learner. Goal: Comprehensive mastery.";
+      structureInstruction = "Create 20+ Units covering History, Theory, Mechanics, Applications, Edge Cases, and Future Directions. Be thorough and exhaustive.";
       break;
   }
 
-  const prompt = `Act as a senior curriculum designer for a leading university. Design a structured learning path for the topic: "${topic}".
-  
-  Context:
-  ${depthInstruction}
-  
-  Structure Constraints:
-  ${structureInstruction}
-  
-  Guidelines:
-  1. The curriculum must be logical and sequential (A leads to B, B leads to C).
-  2. Titles should sound professional and academic yet engaging.
-  3. The description for each unit should briefly explain the learning outcome.
-  4. Assign a single, distinct hex color for each unit to create a rainbow gradient effect.
-  
-  IMPORTANT: Return ONLY valid JSON. No markdown formatting, no backticks.
-  
-  Output Schema:
-  {
-    "icon": "A single emoji representing the topic",
-    "units": [
-      {
-        "title": "Unit Title",
-        "description": "Unit Description",
-        "color": "#HexColor",
-        "chapters": [
-          {
-            "title": "Chapter Title",
-            "description": "Chapter Description"
-          }
-        ]
-      }
-    ]
-  }
-  `;
+  // Add category-specific guidance
+  const categoryGuidance = getCategoryGuidance(category);
 
-  return generateWithOpenAI(prompt, "You are an expert curriculum designer. You output strictly valid JSON.");
+  const prompt = `Act as a senior curriculum designer. Design a structured learning path for: "${topic}".
+
+Context:
+${depthInstruction}
+
+Topic Category: ${category}
+${categoryGuidance}
+
+Structure:
+${structureInstruction}
+
+Guidelines:
+1. Curriculum must be logical and sequential - each unit builds on previous knowledge
+2. Titles should be professional yet engaging - avoid generic names like "Introduction to X"
+3. Each unit description should explain the specific learning outcome
+4. Assign distinct hex colors creating a pleasing gradient (not random)
+5. Chapter titles should be specific and actionable, not vague
+6. Vary the complexity and style of chapters - mix theory, practice, and application
+
+IMPORTANT: Return ONLY valid JSON. No markdown.
+
+Output Schema:
+{
+  "icon": "Single emoji for topic",
+  "units": [
+    {
+      "title": "Specific Unit Title",
+      "description": "What learner will achieve",
+      "color": "#HexColor",
+      "chapters": [
+        {
+          "title": "Specific Chapter Title",
+          "description": "Chapter focus"
+        }
+      ]
+    }
+  ]
+}`;
+
+  return generateWithAI(
+    prompt,
+    "You are an expert curriculum designer who creates engaging, well-structured courses. Output strictly valid JSON.",
+    0,
+    'course-generation',
+    { topic }
+  );
+}
+
+function getCategoryGuidance(category: TopicCategory): string {
+  const guidance: Record<TopicCategory, string> = {
+    science: "Include both theoretical concepts and experimental/observational aspects. Balance equations with real-world applications.",
+    technology: "Focus on practical skills. Include both conceptual understanding and hands-on implementation. Progress from basics to advanced patterns.",
+    mathematics: "Build concepts progressively. Include proofs and problem-solving. Connect abstract concepts to practical applications.",
+    history: "Organize chronologically or thematically. Include primary sources, cause-effect analysis, and multiple perspectives.",
+    language: "Balance grammar, vocabulary, reading, writing, and speaking. Include cultural context and practical usage.",
+    arts: "Combine technique with theory and history. Include both analysis and creation. Progress from fundamentals to personal style.",
+    business: "Include theory and case studies. Balance strategy with practical execution. Cover both foundational concepts and current trends.",
+    health: "Balance scientific understanding with practical application. Include evidence-based information and safety considerations.",
+    'social-science': "Include research methods, theories, and real-world applications. Present multiple perspectives and encourage critical thinking.",
+    'practical-skills': "Focus on step-by-step skill building. Include safety, tools, techniques, and troubleshooting. Progress from basics to advanced.",
+    general: "Create a balanced mix of theory, examples, and practical application. Ensure clear progression and engaging content.",
+  };
+
+  return guidance[category] || guidance.general;
 }
 
 async function handleGeneratePathSuggestions(topic: string, history: string[]) {
-  const prompt = `The user is learning "${topic}". 
-  They have already completed units on: ${history.join(', ')}.
-  
-  Suggest 3 distinct, exciting "Next Steps" or subtopics they could learn next. 
-  These should be short, punchy titles (max 4 words).
+  const category = detectTopicCategory(topic);
 
-  IMPORTANT: Return ONLY valid JSON. No markdown formatting.
+  const prompt = `The user is learning "${topic}" (Category: ${category}).
+They completed: ${history.join(', ')}.
 
-  Output Schema:
-  {
-    "suggestions": ["Suggestion 1", "Suggestion 2", "Suggestion 3"]
-  }
-  `;
+Suggest 3 distinct, exciting next directions. These should be:
+- Specific and actionable (not generic)
+- Building on what they've learned
+- Offering different paths (depth, breadth, application)
 
-  return generateWithOpenAI(prompt);
+Return ONLY valid JSON:
+{
+  "suggestions": ["Direction 1", "Direction 2", "Direction 3"]
+}`;
+
+  return generateWithAI(prompt, "You are a helpful AI assistant.", 0, 'path-suggestions', { topic });
 }
 
 async function handleGenerateUnit(topic: string, existingUnitCount: number, focus?: string) {
-  let prompt = `The user is learning "${topic}". They have completed ${existingUnitCount} units.
-  Create the NEXT Unit in the sequence. It should be slightly more advanced.
-  The number of chapters (3-6) should depend on the complexity.
-  `;
+  const category = detectTopicCategory(topic, focus);
+
+  let prompt = `The user is learning "${topic}" (Category: ${category}). They've completed ${existingUnitCount} units.
+Create the NEXT Unit - more advanced than previous content.
+Chapters (3-6) should depend on complexity.`;
 
   if (focus) {
-    prompt += `\nCRITICAL: The user specifically wants this unit to focus on "${focus}".`;
+    prompt += `\n\nCRITICAL: User specifically wants to focus on "${focus}". Make this the central theme.`;
   }
 
   prompt += `
-  IMPORTANT: Return ONLY valid JSON. No markdown formatting.
-  
-  Output Schema:
-  {
-    "title": "Unit Title",
-    "description": "Unit Description",
-    "color": "#HexColor",
-    "chapters": [
-      {
-        "title": "Chapter Title",
-        "description": "Chapter Description"
-      }
-    ]
-  }
-  `;
 
-  return generateWithOpenAI(prompt);
+Requirements:
+- Title should be specific and engaging
+- Description should explain the value
+- Chapters should progress logically
+- Mix of theory, practice, and application
+
+Return ONLY valid JSON:
+{
+  "title": "Unit Title",
+  "description": "Unit Description",
+  "color": "#HexColor",
+  "chapters": [
+    {
+      "title": "Chapter Title",
+      "description": "Chapter Description"
+    }
+  ]
+}`;
+
+  return generateWithAI(prompt, "You are a helpful AI assistant.", 0, 'unit-generation', { topic, focus });
 }
 
 async function handleGenerateLessonContent(topic: string, chapterTitle: string) {
-  const prompt = `Create an interactive, gamified micro-lesson for the chapter "${chapterTitle}" on the topic "${topic}".
-  
-  1. Provide a very short, engaging conceptual introduction.
-  2. Create 4 interactive questions.
-  
-  Question Types: 'multiple-choice', 'fill-blank', 'true-false'.
+  const category = detectTopicCategory(topic, chapterTitle);
+  const template = getLessonTemplate(topic, chapterTitle);
+  const questionCount = getQuestionCount(template);
+  const questionTypes = selectQuestionTypes(template, questionCount);
 
-  IMPORTANT: Return ONLY valid JSON. No markdown formatting.
-
-  Output Schema:
-  {
-    "intro": "Short introduction text",
-    "questions": [
-      {
-        "type": "multiple-choice" | "fill-blank" | "true-false",
-        "question": "The question text",
-        "options": ["Option 1", "Option 2"] (only for multiple-choice),
-        "correctAnswer": "The exact correct answer string",
-        "explanation": "Why this is correct"
-      }
-    ]
+  // Try to get RAG context for enrichment
+  let ragContext: RAGContext | null = null;
+  try {
+    ragContext = await buildRAGContext(topic, chapterTitle);
+  } catch (e) {
+    console.warn('RAG context failed:', e);
   }
-  `;
 
-  return generateWithOpenAI(prompt);
+  // Build enriched prompt with RAG context
+  let contextSection = '';
+  if (ragContext) {
+    contextSection = `
+REAL-WORLD CONTEXT (use this to enrich the lesson):
+${ragContext.summary}
+
+Key Facts to potentially incorporate:
+${ragContext.facts.map(f => `- ${f}`).join('\n')}
+`;
+  }
+
+  const intro = generateIntroVariation(category, chapterTitle, 'quiz', ragContext?.facts);
+
+  const prompt = `Create an engaging micro-lesson for "${chapterTitle}" (Topic: ${topic}, Category: ${category}).
+${contextSection}
+
+Requirements:
+1. Use this intro (or improve slightly): "${intro}"
+2. Create exactly ${questionCount} questions
+3. Question types to use (in order): ${questionTypes.join(', ')}
+4. Make questions progressively harder
+5. Include real-world examples where possible
+6. Vary question formats - some direct, some scenario-based, some application-based
+7. Explanations should teach, not just confirm
+
+Question Type Guidelines:
+- multiple-choice: 4 options, one clearly correct, distractors should be plausible
+- fill-blank: Use ___ for the blank, answer should be 1-3 words
+- true-false: Include subtle nuances that require understanding
+
+${ragContext ? 'IMPORTANT: Incorporate the real-world context and facts provided above into your questions.' : ''}
+
+Return ONLY valid JSON:
+{
+  "intro": "Engaging introduction",
+  "questions": [
+    {
+      "type": "multiple-choice" | "fill-blank" | "true-false",
+      "question": "Question text",
+      "options": ["A", "B", "C", "D"] (multiple-choice only),
+      "correctAnswer": "Exact answer",
+      "explanation": "Educational explanation"
+    }
+  ]
+}`;
+
+  return generateWithAI(
+    prompt,
+    `You are an expert educational content creator specializing in ${category}. Create engaging, accurate lessons. Output strictly valid JSON.`,
+    0,
+    'lesson-generation-quiz',
+    { topic, chapterTitle }
+  );
 }
 
 async function handleGenerateResourceLesson(topic: string, chapterTitle: string) {
-  const prompt = `Find or generate a high-quality, educational resource recommendation about "${chapterTitle}" in the context of learning "${topic}". 
-  Provide a URL (can be a well-known placeholder if unknown, e.g., to a relevant Wikipedia page or official doc), the title, and a short summary.
-  Then, generate 3 multiple-choice questions based on the likely content of such a resource.
+  const category = detectTopicCategory(topic, chapterTitle);
+  const template = getLessonTemplate(topic, chapterTitle);
 
-  IMPORTANT: Return ONLY valid JSON. No markdown formatting.
-
-  Output Schema:
-  {
-    "resource": {
-      "url": "https://example.com/resource",
-      "title": "Resource Title",
-      "summary": "Short summary",
-      "sourceName": "Source Name (e.g. Wikipedia, MDN, etc.)"
-    },
-    "questions": [
-      {
-        "type": "multiple-choice",
-        "question": "Question text",
-        "options": ["A", "B", "C", "D"],
-        "correctAnswer": "Correct Option",
-        "explanation": "Explanation"
-      }
-    ]
+  // Get real resources through RAG
+  let ragContext: RAGContext | null = null;
+  try {
+    ragContext = await buildRAGContext(topic, chapterTitle);
+  } catch (e) {
+    console.warn('RAG context failed:', e);
   }
-  `;
 
-  return generateWithOpenAI(prompt, "You are a research assistant. Output strictly valid JSON.");
+  // Select best resource from RAG results or generate one
+  let resourceInfo = '';
+  if (ragContext && ragContext.resources.length > 0) {
+    const bestResource = ragContext.resources.find(r =>
+      template.resourceTypes.includes(r.type)
+    ) || ragContext.resources[0];
+
+    resourceInfo = `
+USE THIS REAL RESOURCE:
+- URL: ${bestResource.url}
+- Title: ${bestResource.title}
+- Source: ${bestResource.source}
+- Type: ${bestResource.type}
+- Description: ${bestResource.description}
+
+Additional context from research:
+${ragContext.summary}
+${ragContext.facts.map(f => `- ${f}`).join('\n')}
+`;
+  }
+
+  const intro = generateIntroVariation(category, chapterTitle, 'resource', ragContext?.facts);
+
+  const prompt = `Create a resource-based lesson for "${chapterTitle}" (Topic: ${topic}, Category: ${category}).
+${resourceInfo}
+
+Requirements:
+1. ${ragContext ? 'Use the provided real resource' : 'Find/generate a high-quality educational resource (Wikipedia, official docs, reputable sites)'}
+2. Write a compelling summary that makes the learner want to explore
+3. Create 3 multiple-choice questions based on the resource content
+4. Questions should test understanding, not just recall
+5. Include practical application questions
+
+Preferred resource types for this category: ${template.resourceTypes.join(', ')}
+
+Return ONLY valid JSON:
+{
+  "resource": {
+    "url": "https://...",
+    "title": "Resource Title",
+    "summary": "Compelling 2-3 sentence summary",
+    "sourceName": "Source Name"
+  },
+  "questions": [
+    {
+      "type": "multiple-choice",
+      "question": "Question about the content",
+      "options": ["A", "B", "C", "D"],
+      "correctAnswer": "Correct option",
+      "explanation": "Why this is correct"
+    }
+  ]
+}`;
+
+  return generateWithAI(
+    prompt,
+    `You are a research assistant who curates excellent educational resources. Output strictly valid JSON.`,
+    0,
+    'lesson-generation-resource',
+    { topic, chapterTitle }
+  );
 }
 
 async function handleGenerateInteractiveLesson(topic: string, chapterTitle: string) {
-  const prompt = `Create an INTERACTIVE simulation or mini-game config for "${chapterTitle}" (Topic: ${topic}).
-  
-  IMPORTANT: For simulation widgets, create CLEAR and UNAMBIGUOUS slider questions with these requirements:
-  
-  1. Use SIMPLE, EVERYDAY LANGUAGE - avoid technical jargon or complex terminology
-  2. Provide EXPLICIT VALUE RANGES and EXPECTED ANSWER FORMATS
-  3. Include CONTEXTUAL HINTS about what constitutes a correct answer
-  4. Make questions STRAIGHTFORWARD with only one correct interpretation
-  5. Use FAMILIAR CONCEPTS that don't require specialized knowledge
-  
-  For simulation sliders:
-  - Each parameter should have a CLEAR, DESCRIPTIVE LABEL
-  - Target values should be REASONABLE and INTUITIVE
-  - Provide simple context clues in the instruction
-  - Avoid ambiguous terms like "optimal" or "ideal" without clear definition
-  
-  Choose the best Widget Type: 'simulation', 'sorting', 'canvas', or 'image-editor'.
+  const category = detectTopicCategory(topic, chapterTitle);
+  const template = getLessonTemplate(topic, chapterTitle);
+  const widgetType = selectWidgetType(template, chapterTitle);
 
-  IMPORTANT: Return ONLY valid JSON. No markdown formatting.
-
-  Output Schema:
-  {
-    "intro": "Brief intro",
-    "widgetType": "simulation" | "sorting" | "canvas" | "image-editor",
-    "instruction": "What the user should do",
-    "feedback": "Success message",
-    "simulationParams": [
-      {
-        "label": "Parameter Name",
-        "min": 0,
-        "max": 100,
-        "step": 1,
-        "targetValue": 50,
-        "unit": "%"
-      }
-    ],
-    "sortingItems": ["Item 1", "Item 2"] (if widgetType is sorting),
-    "canvasBackground": "Description of background" (if widgetType is canvas),
-    "quizQuestions": [
-      {
-        "type": "multiple-choice",
-        "question": "Follow up question",
-        "options": ["A", "B"],
-        "correctAnswer": "A",
-        "explanation": "Why"
-      }
-    ]
+  // Get RAG context for realistic scenarios
+  let ragContext: RAGContext | null = null;
+  try {
+    ragContext = await buildRAGContext(topic, chapterTitle);
+  } catch (e) {
+    console.warn('RAG context failed:', e);
   }
-  `;
 
-  return generateWithOpenAI(prompt);
+  let contextSection = '';
+  if (ragContext) {
+    contextSection = `
+REAL-WORLD CONTEXT (use for realistic scenarios):
+${ragContext.summary}
+Facts: ${ragContext.facts.join('; ')}
+`;
+  }
+
+  const intro = generateIntroVariation(category, chapterTitle, 'interactive', ragContext?.facts);
+
+  // Widget-specific instructions
+  const widgetInstructions = getWidgetInstructions(widgetType, category);
+
+  const prompt = `Create an INTERACTIVE lesson for "${chapterTitle}" (Topic: ${topic}, Category: ${category}).
+${contextSection}
+
+Widget Type: ${widgetType}
+${widgetInstructions}
+
+Requirements:
+1. Use intro: "${intro}" (or improve slightly)
+2. Create a realistic, engaging scenario
+3. Include 2-3 follow-up multiple-choice questions
+4. Make the activity educational, not just fun
+
+${widgetType === 'simulation' ? `
+SIMULATION REQUIREMENTS:
+- 2-4 sliders with CLEAR labels
+- Use REAL-WORLD units and values
+- Target values should be intuitive and explainable
+- Include a hint in the instruction
+- Feedback message should explain why the correct values matter` : ''}
+
+${widgetType === 'sorting' ? `
+SORTING REQUIREMENTS:
+- 4-6 items to sort
+- Clear correct order
+- Items should be obviously sequential when understood
+- Could be steps, timeline, priority, etc.` : ''}
+
+${widgetType === 'canvas' ? `
+CANVAS REQUIREMENTS:
+- Clear drawing instruction
+- Provide a simple guide or reference
+- Focus on understanding through visualization` : ''}
+
+Return ONLY valid JSON:
+{
+  "intro": "Brief engaging intro",
+  "widgetType": "${widgetType}",
+  "instruction": "Clear instruction with context",
+  "feedback": "Encouraging success message",
+  ${widgetType === 'simulation' ? `"simulationParams": [
+    {
+      "label": "Parameter Name",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "targetValue": 50,
+      "unit": "unit"
+    }
+  ],` : ''}
+  ${widgetType === 'sorting' ? `"sortingItems": ["Item 1", "Item 2", "Item 3", "Item 4"],` : ''}
+  ${widgetType === 'canvas' ? `"canvasBackground": "Description or guide",` : ''}
+  "quizQuestions": [
+    {
+      "type": "multiple-choice",
+      "question": "Follow-up question",
+      "options": ["A", "B", "C", "D"],
+      "correctAnswer": "A",
+      "explanation": "Educational explanation"
+    }
+  ]
+}`;
+
+  return generateWithAI(
+    prompt,
+    `You are an expert in creating interactive educational experiences. Output strictly valid JSON.`,
+    0,
+    'lesson-generation-interactive',
+    { topic, chapterTitle }
+  );
+}
+
+function getWidgetInstructions(widgetType: string, category: TopicCategory): string {
+  const instructions: Record<string, Record<TopicCategory, string>> = {
+    simulation: {
+      science: "Create a realistic scientific experiment simulation with measurable parameters.",
+      technology: "Create a configuration or tuning simulation with real-world tech parameters.",
+      mathematics: "Create a visual math exploration with adjustable variables.",
+      history: "Create a historical scenario simulation with decision parameters.",
+      language: "Create a pronunciation or grammar tuning exercise.",
+      arts: "Create a composition or technique adjustment simulation.",
+      business: "Create a business scenario with adjustable market/resource parameters.",
+      health: "Create a health/fitness parameter adjustment simulation.",
+      'social-science': "Create a social dynamics simulation with behavioral parameters.",
+      'practical-skills': "Create a hands-on technique adjustment simulation.",
+      general: "Create an engaging parameter adjustment exercise.",
+    },
+    sorting: {
+      science: "Create a process or methodology ordering exercise.",
+      technology: "Create a workflow or algorithm step ordering exercise.",
+      mathematics: "Create a problem-solving step ordering exercise.",
+      history: "Create a chronological or cause-effect ordering exercise.",
+      language: "Create a sentence structure or story ordering exercise.",
+      arts: "Create a technique progression or artistic process ordering.",
+      business: "Create a strategy or process flow ordering exercise.",
+      health: "Create a treatment protocol or procedure ordering.",
+      'social-science': "Create a theory development or research method ordering.",
+      'practical-skills': "Create a step-by-step procedure ordering exercise.",
+      general: "Create a logical sequence ordering exercise.",
+    },
+    canvas: {
+      science: "Create a diagram drawing exercise (circuits, molecules, etc.).",
+      technology: "Create a flowchart or architecture diagram exercise.",
+      mathematics: "Create a geometric construction or graph drawing exercise.",
+      history: "Create a map annotation or timeline drawing exercise.",
+      language: "Create a character writing or symbol drawing exercise.",
+      arts: "Create a basic technique or composition drawing exercise.",
+      business: "Create an org chart or strategy diagram exercise.",
+      health: "Create an anatomy labeling or pathway drawing exercise.",
+      'social-science': "Create a concept map or relationship diagram exercise.",
+      'practical-skills': "Create a technique demonstration or plan drawing.",
+      general: "Create a concept visualization drawing exercise.",
+    },
+    'image-editor': {
+      science: "Create an image annotation or analysis exercise.",
+      technology: "Create a UI/UX modification exercise.",
+      mathematics: "Create a visual transformation exercise.",
+      history: "Create a historical image analysis exercise.",
+      language: "Create a visual vocabulary exercise.",
+      arts: "Create a composition or color adjustment exercise.",
+      business: "Create a presentation or marketing visual exercise.",
+      health: "Create a medical image analysis exercise.",
+      'social-science': "Create a data visualization modification exercise.",
+      'practical-skills': "Create a before/after comparison exercise.",
+      general: "Create an image enhancement or analysis exercise.",
+    },
+  };
+
+  return instructions[widgetType]?.[category] || instructions[widgetType]?.general || "Create an engaging interactive exercise.";
+}
+
+async function handleGenerateUnitReferences(topic: string, unitTitle: string, chapterTitles: string[]) {
+  const category = detectTopicCategory(topic, unitTitle);
+
+  // Import the functions we need
+  const { shouldHaveReferences, getSourcePriority } = await import('../../../services/academicSources');
+  const { batchValidateURLs } = await import('../../../services/urlValidator');
+
+  // Check if this topic should have references at all
+  if (!shouldHaveReferences(topic, category)) {
+    console.log(`Topic "${topic}" is subjective/personal - skipping references`);
+    return {
+      materials: [],
+      shouldShowReferences: false,
+    };
+  }
+
+  console.log(`Generating references for "${topic}" (${category})`);
+
+  // Use RAG to find real resources
+  let ragContext: RAGContext | null = null;
+  try {
+    ragContext = await buildRAGContext(topic, unitTitle);
+  } catch (e) {
+    console.warn('RAG context failed for references:', e);
+  }
+
+  // If we have real search results, validate and rank them
+  if (ragContext && ragContext.resources.length > 0) {
+    console.log(`Found ${ragContext.resources.length} potential resources`);
+
+    // Validate URLs
+    const urlsToValidate = ragContext.resources.map(r => r.url);
+    const validationResults = await batchValidateURLs(urlsToValidate);
+
+    // Filter and score resources
+    const scoredResources = ragContext.resources
+      .map((resource, index) => {
+        const validation = validationResults[index];
+        const priorityScore = getSourcePriority(resource.url, category);
+        const relevanceScore = chapterTitles.some(title =>
+          resource.title.toLowerCase().includes(title.toLowerCase())
+        ) ? 2 : 0;
+
+        return {
+          ...resource,
+          validatedAt: validation.checkedAt,
+          isValid: validation.isValid,
+          score: priorityScore + relevanceScore + (validation.isValid ? 5 : 0),
+        };
+      })
+      .filter(r => r.isValid) // Only keep valid URLs
+      .sort((a, b) => b.score - a.score) // Sort by score
+      .slice(0, 5); // Take top 5
+
+    console.log(`Validated: ${scoredResources.length} valid resources`);
+
+    if (scoredResources.length > 0) {
+      return {
+        materials: scoredResources.map((r, idx) => ({
+          id: `ref-${Date.now()}-${idx}`,
+          title: r.title,
+          url: r.url,
+          type: r.type,
+          source: r.source,
+          description: r.description || `Resource about ${unitTitle} from ${r.source}`,
+          validatedAt: r.validatedAt,
+          isValid: r.isValid,
+        })),
+        shouldShowReferences: true,
+      };
+    }
+  }
+
+  // No valid resources found - don't generate fake summaries
+  console.log(`No valid resources found for "${topic}"`);
+  return {
+    materials: [],
+    shouldShowReferences: true, // We tried but found nothing
+  };
+}
+
+function getCategoryResourcePreference(category: TopicCategory): string {
+  const preferences: Record<TopicCategory, string> = {
+    science: "Academic papers, Khan Academy, educational YouTube channels, simulation tools",
+    technology: "Official documentation, MDN, Stack Overflow, GitHub repos, tutorial sites",
+    mathematics: "Khan Academy, Wolfram Alpha, interactive visualization tools, problem sets",
+    history: "Primary sources, museum archives, documentary recommendations, academic articles",
+    language: "Dictionary resources, grammar guides, native content, language learning apps",
+    arts: "Tutorial videos, technique demonstrations, artist portfolios, museum collections",
+    business: "Harvard Business Review, case studies, industry reports, professional guides",
+    health: "PubMed, Mayo Clinic, WHO resources, certified health information sites",
+    'social-science': "Academic journals, research databases, case studies, data sources",
+    'practical-skills': "Step-by-step guides, video tutorials, equipment guides, safety resources",
+    general: "Wikipedia, educational platforms, reputable news sources, expert blogs",
+  };
+
+  return preferences[category] || preferences.general;
 }

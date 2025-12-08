@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useStore } from '../store/useStore';
-import { generateLessonContent, generateUnit, generatePathSuggestions, generateInteractiveLesson, generateResourceLesson } from '../services/ai';
-import { Star, Lock, Check, Loader2, Plus, Trash2, BookOpen, Settings, Dumbbell, Cloud, MapPin, ArrowRight, X } from 'lucide-react';
-import { Unit, Chapter, AppState, DEFAULT_LOADER_CONFIG } from '../types';
+import { generateLessonOptimized } from '../services/aiOptimized';
+import { generateUnit, generatePathSuggestions, generateUnitReferences } from '../services/ai';
+import { Star, Lock, Check, Loader2, Plus, Trash2, BookOpen, Settings, Dumbbell, Cloud, MapPin, ArrowRight, X, Library } from 'lucide-react';
+import { Unit, Chapter, AppState, DEFAULT_LOADER_CONFIG, UnitReferences } from '../types';
 import { Button } from './ui/Button';
-import { LessonLoader, useLessonLoader } from './LessonLoader';
+import { LessonLoader, useLessonLoader } from './LessonLoaderOptimized';
 import { lessonCache } from '../services/lessonCache';
+import { getLessonTemplate } from '../services/webSearch';
+import { ReferenceSection } from './ReferenceSection';
 
 export const Roadmap: React.FC = () => {
   const store = useStore();
@@ -23,6 +26,10 @@ export const Roadmap: React.FC = () => {
   const [customPath, setCustomPath] = useState("");
 
   const activeCourse = store.courses.find(c => c.id === store.activeCourseId);
+
+  // Reference Section State
+  const [referenceUnitId, setReferenceUnitId] = useState<string | null>(null);
+  const referenceUnit = activeCourse?.units.find(u => u.id === referenceUnitId);
 
   const dueReviewItems = store.srsItems.filter(
     item => item.courseId === store.activeCourseId && item.nextReviewDate <= Date.now()
@@ -95,9 +102,29 @@ export const Roadmap: React.FC = () => {
       return false;
     }
 
-    // Determine lesson type
+    // Determine lesson type based on topic category for variety
+    const template = getLessonTemplate(topic, chapter.title);
     const rand = Math.random();
-    const lessonType = rand < 0.7 ? 'quiz' : rand < 0.85 ? 'interactive' : 'resource';
+
+    // Vary distribution based on topic category
+    // Categories with more hands-on content get more interactive lessons
+    const hasStrongInteractive = template.interactiveWidgets.length >= 3;
+    const hasStrongResources = template.resourceTypes.length >= 3;
+
+    let lessonType: 'quiz' | 'interactive' | 'resource';
+    if (hasStrongInteractive && hasStrongResources) {
+      // Balanced distribution for versatile topics
+      lessonType = rand < 0.5 ? 'quiz' : rand < 0.75 ? 'interactive' : 'resource';
+    } else if (hasStrongInteractive) {
+      // More interactive for hands-on topics
+      lessonType = rand < 0.4 ? 'quiz' : rand < 0.8 ? 'interactive' : 'resource';
+    } else if (hasStrongResources) {
+      // More resources for research-heavy topics
+      lessonType = rand < 0.4 ? 'quiz' : rand < 0.6 ? 'interactive' : 'resource';
+    } else {
+      // Default distribution
+      lessonType = rand < 0.6 ? 'quiz' : rand < 0.8 ? 'interactive' : 'resource';
+    }
 
     try {
       // Phase: Checking cache
@@ -111,14 +138,14 @@ export const Roadmap: React.FC = () => {
       // Try to get from cache first
       const cached = await lessonCache.getCachedLesson(topic, chapter.title, lessonType);
       if (cached) {
-        lessonLoader.updatePhase('finalizing', 'Loading from cache...', true);
+        lessonLoader.updatePhase('finalizing', 'Loading from cache...');
         await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause for UX
         store.setLessonContent({ ...cached, chapterId: chapter.id });
         setLoadingChapterId(null);
         return true;
       }
 
-      // Phase: Generating
+      // Phase: Generating with better error handling
       lessonLoader.updatePhase('generating', 'Generating personalized content...');
 
       // Check abort signal before generating
@@ -126,18 +153,19 @@ export const Roadmap: React.FC = () => {
         return false;
       }
 
-      let content;
-      if (lessonType === 'quiz') {
-        content = await generateLessonContent(topic, chapter.title);
-      } else if (lessonType === 'interactive') {
-        content = await generateInteractiveLesson(topic, chapter.title);
-      } else {
-        content = await generateResourceLesson(topic, chapter.title);
-      }
+      // Use optimized single-call generation with search phase
+      const content = await generateLessonOptimized(topic, chapter.title, lessonType, (phase, message) => {
+        lessonLoader.updatePhase(phase as any, message);
+      });
 
       // Check abort signal after generating
       if (loadingAbortRef.current?.signal.aborted) {
         return false;
+      }
+
+      // Validate generated content
+      if (!content || !content.questions || content.questions.length === 0) {
+        throw new Error('Generated content is invalid or empty');
       }
 
       // Cache the generated content
@@ -158,17 +186,23 @@ export const Roadmap: React.FC = () => {
         return false;
       }
 
-      // Retry logic
-      if (retryCount < DEFAULT_LOADER_CONFIG.maxRetries) {
-        const newRetryCount = lessonLoader.incrementRetry();
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Exponential backoff
-        return loadLessonWithRetry(unit, chapter, newRetryCount);
+      // Simple retry logic - just retry the same call once
+      if (retryCount === 0) {
+        lessonLoader.updatePhase('generating', 'Retrying...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return loadLessonWithRetry(unit, chapter, 1);
       }
 
-      // Max retries exceeded
-      lessonLoader.setError(
-        error instanceof Error ? error.message : 'Failed to load lesson after multiple attempts'
-      );
+      // Max retries exceeded - provide helpful error message
+      const errorMessage = error instanceof Error 
+        ? error.message.includes('Rate limit')
+          ? 'Rate limit reached. Please wait a few minutes before trying again.'
+          : error.message.includes('Network')
+            ? 'Network error. Please check your connection.'
+            : error.message
+        : 'Failed to load lesson after multiple attempts';
+        
+      lessonLoader.setError(errorMessage);
       return false;
     }
   }, [activeCourse, lessonLoader, store]);
@@ -193,12 +227,12 @@ export const Roadmap: React.FC = () => {
 
     try {
       // Initialize loading state
-      lessonLoader.initializeLoading(chapter.id, chapter.title);
+      lessonLoader.initializeLoading(chapter.title);
 
       // Set up timeout
       timeoutRef.current = setTimeout(() => {
         if (store.loadingState?.chapterId === chapter.id) {
-          lessonLoader.setTimeout();
+          lessonLoader.setError('Taking longer than usual...');
         }
       }, DEFAULT_LOADER_CONFIG.timeout);
 
@@ -235,7 +269,7 @@ export const Roadmap: React.FC = () => {
       const chapter = unit.chapters.find(ch => ch.id === state.chapterId);
       if (chapter) {
         // Reset and retry
-        lessonLoader.initializeLoading(chapter.id, chapter.title);
+        lessonLoader.initializeLoading(chapter.title);
         setLoadingChapterId(chapter.id);
         loadLessonWithRetry(unit, chapter);
         return;
@@ -251,7 +285,7 @@ export const Roadmap: React.FC = () => {
       clearTimeout(timeoutRef.current);
     }
     setLoadingChapterId(null);
-    lessonLoader.cancelLoading();
+    store.setLoadingState(null);
   }, [lessonLoader]);
 
   const handleReviewClick = () => {
@@ -312,6 +346,21 @@ export const Roadmap: React.FC = () => {
         alert("Failed to generate unit.");
     } finally {
         setIsAddingUnit(false);
+    }
+  };
+
+  const handleGenerateReferences = async (unitId: string): Promise<UnitReferences | null> => {
+    const unit = activeCourse?.units.find(u => u.id === unitId);
+    if (!unit || !activeCourse) return null;
+
+    try {
+      const refs = await generateUnitReferences(activeCourse.topic, unit.title, unit.chapters.map(c => c.title));
+      // Update the unit with references in the store
+      store.setUnitReferences(unitId, refs);
+      return refs;
+    } catch (e) {
+      console.error('Failed to generate references:', e);
+      return null;
     }
   };
 
@@ -399,30 +448,8 @@ export const Roadmap: React.FC = () => {
              <div className="relative z-10 text-8xl opacity-10 grayscale group-hover:grayscale-0 transition-all duration-500">{activeCourse.icon}</div>
           </div>
 
-          {/* Lesson Loading Indicator */}
-          {loadingChapterId && (
-            <div className="mb-8 bg-gravity-blue/10 dark:bg-gravity-blue/20 border border-gravity-blue/30 rounded-2xl p-8 text-center animate-pulse">
-              <div className="flex items-center justify-center mb-4">
-                <Loader2 className="w-8 h-8 animate-spin text-gravity-blue mr-3" />
-                <h3 className="text-xl font-bold text-gravity-blue">Loading Lesson</h3>
-              </div>
-              {activeCourse.units
-                .flatMap(unit => unit.chapters)
-                .find(chapter => chapter.id === loadingChapterId)?.title && (
-                <p className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark font-medium">
-                  Preparing: {activeCourse.units
-                    .flatMap(unit => unit.chapters)
-                    .find(chapter => chapter.id === loadingChapterId)?.title
-                  }
-                </p>
-              )}
-              <div className="flex justify-center space-x-1 mt-4">
-                <div className="w-2 h-2 bg-gravity-blue rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                <div className="w-2 h-2 bg-gravity-blue rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-2 h-2 bg-gravity-blue rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-              </div>
-            </div>
-          )}
+          {/* Lesson Loading Indicator - Removed as per request */}
+          {/* loadingChapterId logic handled by LessonLoader component now */}
 
           {/* Controls */}
           <div className="flex justify-between items-center mb-8">
@@ -451,7 +478,7 @@ export const Roadmap: React.FC = () => {
             {activeCourse.units.map((unit, unitIdx) => (
               <div key={unit.id} className="relative">
                 {/* Unit Header */}
-                <div 
+                <div
                   className="mb-8 rounded-2xl p-1 shadow-sm relative overflow-hidden"
                   style={{ backgroundColor: unit.color }}
                 >
@@ -461,13 +488,30 @@ export const Roadmap: React.FC = () => {
                       <p className="font-bold text-sm mt-1" style={{ color: unit.color }}>{unit.title}</p>
                       <p className="text-xs text-gravity-text-sub-light dark:text-gravity-text-sub-dark mt-2 max-w-md">{unit.description}</p>
                     </div>
-                    {manageMode ? (
-                      <button onClick={() => store.deleteUnit(unit.id)} className="text-gravity-danger p-2 hover:bg-gravity-danger/10 rounded-full">
-                         <Trash2 className="w-5 h-5" />
-                      </button>
-                    ) : (
-                      <BookOpen className="w-6 h-6 text-gravity-text-sub-light dark:text-gravity-text-sub-dark opacity-20" />
-                    )}
+                    <div className="flex items-center gap-2">
+                      {/* Reference Materials Button */}
+                      {!manageMode && (
+                        <button
+                          onClick={() => setReferenceUnitId(unit.id)}
+                          className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors group relative"
+                          title="Reference Materials"
+                        >
+                          <Library className="w-5 h-5 text-gravity-text-sub-light dark:text-gravity-text-sub-dark group-hover:text-gravity-blue transition-colors" />
+                          {unit.references && unit.references.materials.length > 0 && (
+                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-gravity-blue text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                              {unit.references.materials.length}
+                            </span>
+                          )}
+                        </button>
+                      )}
+                      {manageMode ? (
+                        <button onClick={() => store.deleteUnit(unit.id)} className="text-gravity-danger p-2 hover:bg-gravity-danger/10 rounded-full">
+                           <Trash2 className="w-5 h-5" />
+                        </button>
+                      ) : (
+                        <BookOpen className="w-6 h-6 text-gravity-text-sub-light dark:text-gravity-text-sub-dark opacity-20" />
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -609,8 +653,8 @@ export const Roadmap: React.FC = () => {
               )}
 
               <div className="flex gap-2">
-                 <input 
-                    type="text" 
+                 <input
+                    type="text"
                     value={customPath}
                     onChange={(e) => setCustomPath(e.target.value)}
                     placeholder="Or type custom topic..."
@@ -622,6 +666,17 @@ export const Roadmap: React.FC = () => {
               </div>
            </div>
         </div>
+      )}
+
+      {/* Reference Section Modal */}
+      {referenceUnit && (
+        <ReferenceSection
+          unit={referenceUnit}
+          topic={activeCourse.topic}
+          isOpen={!!referenceUnitId}
+          onClose={() => setReferenceUnitId(null)}
+          onGenerateReferences={handleGenerateReferences}
+        />
       )}
     </div>
   );

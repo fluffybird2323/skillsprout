@@ -1,0 +1,33 @@
+{
+  "name": "SkillSprout - AI Learning Platform",
+  "short_name": "SkillSprout",
+  "description": "Master any skill with AI-powered personalized lessons and interactive quizzes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121317",
+  "theme_color": "#1A73E8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "screenshots": [
+    {
+      "src": "/screenshot-1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ]
+}

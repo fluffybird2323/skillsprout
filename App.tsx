@@ -7,6 +7,7 @@ import { AppState } from './types';
 import { Loader2 } from 'lucide-react';
 import { ParticleBackground } from './components/ui/ParticleBackground';
 import { ThemeToggle } from './components/ui/ThemeToggle';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 
 const App: React.FC = () => {
   const { appState, theme } = useStore();
@@ -20,6 +21,22 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
+  // Register service worker for PWA
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .then((registration) => {
+            console.log('SW registered:', registration);
+          })
+          .catch((error) => {
+            console.log('SW registration failed:', error);
+          });
+      });
+    }
+  }, []);
+
   const renderContent = () => {
     switch (appState) {
       case AppState.ONBOARDING:
@@ -29,10 +46,9 @@ const App: React.FC = () => {
       case AppState.GENERATING_COURSE:
         return (
           <div className="min-h-screen flex flex-col items-center justify-center relative z-10">
-            <div className="bg-gravity-surface-light dark:bg-gravity-surface-dark p-8 rounded-3xl shadow-xl flex flex-col items-center border border-gravity-border-light dark:border-gravity-border-dark">
-               <Loader2 className="w-12 h-12 animate-spin text-gravity-blue mb-6" />
-               <p className="text-xl font-bold text-gravity-text-main-light dark:text-gravity-text-main-dark mb-2">Generating Protocol</p>
-               <p className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark font-mono text-sm">Consulting Neural Net...</p>
+             <div className="flex flex-col items-center animate-pulse">
+               <Loader2 className="w-8 h-8 animate-spin text-gravity-blue mb-4" />
+               <p className="text-sm font-bold text-gravity-text-sub-light dark:text-gravity-text-sub-dark tracking-widest uppercase">Initializing Protocol</p>
             </div>
           </div>
         );
@@ -54,6 +70,7 @@ const App: React.FC = () => {
     <main className="min-h-screen transition-colors duration-300 bg-gravity-light dark:bg-gravity-dark text-gravity-text-main-light dark:text-gravity-text-main-dark font-sans selection:bg-gravity-blue selection:text-white relative overflow-hidden">
       <ParticleBackground />
       <ThemeToggle />
+      <PWAInstallPrompt />
       <div className="relative z-10 min-h-screen">
          {renderContent()}
       </div>

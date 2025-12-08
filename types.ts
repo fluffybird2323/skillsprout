@@ -57,12 +57,36 @@ export interface Chapter {
   stars: 0 | 1 | 2 | 3;
 }
 
+// Reference material for supplementary learning
+export interface ReferenceMaterial {
+  id: string;
+  title: string;
+  url: string;
+  type: 'article' | 'video' | 'documentation' | 'tutorial' | 'interactive' | 'research' | 'knowledge-summary';
+  source: string;
+  description: string;
+  // Validation metadata
+  validatedAt?: number;
+  isValid?: boolean;
+  // For knowledge summaries (when url is empty)
+  category?: 'theory' | 'application' | 'history' | 'example';
+}
+
+export interface UnitReferences {
+  unitId: string;
+  materials: ReferenceMaterial[];
+  generatedAt: number;
+  // Flag to indicate if references were intentionally skipped for this topic
+  shouldShowReferences?: boolean;
+}
+
 export interface Unit {
   id: string;
   title: string;
   description: string;
   color: string; // hex code for UI theming
   chapters: Chapter[];
+  references?: UnitReferences; // Optional reference materials for the unit
 }
 
 export type CourseDepth = 'casual' | 'serious' | 'obsessed';
@@ -102,6 +126,7 @@ export type Theme = 'light' | 'dark';
 // Loading state types for progressive loading
 export type LoadingPhase =
   | 'initializing'
+  | 'searching'
   | 'checking-cache'
   | 'generating'
   | 'finalizing'

@@ -1,22 +1,62 @@
-import { Course, Unit, LessonContent, CourseDepth } from "../types";
+import { Course, Unit, LessonContent, CourseDepth, UnitReferences, ReferenceMaterial } from "../types";
 import { withRetry } from "../utils/aiHelpers";
 
 // Support both local development and production Cloud Function/Run deployments
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT || '/api/ai';
 
-async function apiCall(action: string, payload: any) {
-  const response = await fetch(API_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, payload }),
-  });
+async function apiCall(action: string, payload: any, retryCount = 0) {
+  try {
+    // Add timeout to fetch request
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, payload }),
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'API Request Failed');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      
+      // Handle rate limiting with exponential backoff
+      if (response.status === 429 && retryCount < 3) {
+        const retryAfter = errorData.retryAfter || Math.pow(2, retryCount + 1);
+        console.warn(`Rate limited. Waiting ${retryAfter}s before retry ${retryCount + 1}`);
+        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+        return apiCall(action, payload, retryCount + 1);
+      }
+      
+      // Handle specific error types
+      if (response.status === 503) {
+        throw new Error('Service temporarily unavailable. Please try again.');
+      } else if (response.status === 502) {
+        throw new Error('Gateway error. The service is experiencing issues.');
+      } else if (response.status === 504) {
+        throw new Error('Gateway timeout. The request took too long to process.');
+      }
+      
+      throw new Error(errorData.error || `API Request Failed: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error: any) {
+    // Handle network errors
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('Network error. Please check your connection.');
+    }
+    
+    // Handle abort errors (timeout)
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out. Please try again.');
+    }
+    
+    // Re-throw the error to be handled by withRetry
+    throw error;
   }
-
-  return response.json();
 }
 
 // --- Public Interface (Matches old service signatures) ---
@@ -143,4 +183,32 @@ export async function editImageWithGemini(base64Image: string, mimeType: string,
   // We can increase the timeout for image generation if needed, but withRetry handles typical glitches
   const result = await withRetry(() => apiCall('editImageWithGemini', { base64Image, mimeType, prompt }));
   return result; // The API returns the data URL string directly
+}
+
+export async function generateUnitReferences(topic: string, unitTitle: string, chapterTitles: string[]): Promise<UnitReferences> {
+  try {
+    const data = await withRetry(() => apiCall('generateUnitReferences', { topic, unitTitle, chapterTitles }));
+
+    const materials: ReferenceMaterial[] = (data.materials || []).map((m: any, idx: number) => ({
+      id: `ref-${Date.now()}-${idx}`,
+      title: m.title,
+      url: m.url,
+      type: m.type || 'article',
+      source: m.source,
+      description: m.description,
+    }));
+
+    return {
+      unitId: '', // Set by caller
+      materials,
+      generatedAt: Date.now(),
+    };
+  } catch (e) {
+    console.warn("Reference generation failed", e);
+    return {
+      unitId: '',
+      materials: [],
+      generatedAt: Date.now(),
+    };
+  }
 }

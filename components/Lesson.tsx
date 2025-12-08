@@ -1,85 +1,277 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { X, Heart, CheckCircle, AlertCircle, LayoutDashboard } from 'lucide-react';
+import { X, Heart, CheckCircle, AlertCircle, LayoutDashboard, BookOpen, RefreshCw } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Button } from './ui/Button';
 import { AppState } from '../types';
+import { storageValidator } from '../utils/storageValidation';
+import { storageRecovery } from '../services/storageRecovery';
 import { ResourceStage } from './interactive/ResourceStage';
 import { InteractiveStage } from './interactive/InteractiveStage';
+
+// Number of consecutive wrong answers before showing reference tip
+const WRONG_ANSWER_TIP_THRESHOLD = 2;
 
 export const Lesson: React.FC = () => {
   const store = useStore();
   const { currentLesson, hearts, setAppState, completeLesson, processAnswer } = store;
-  
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [textAnswer, setTextAnswer] = useState('');
   const [status, setStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [stage, setStage] = useState<'intro' | 'interactive' | 'resource' | 'quiz' | 'complete'>('intro');
+  const [consecutiveWrong, setConsecutiveWrong] = useState(0);
+  const [showReferenceTip, setShowReferenceTip] = useState(false);
 
   useEffect(() => {
-     if (!currentLesson) {
-       setAppState(AppState.ROADMAP);
-       return;
-     }
-     if (store.isReviewSession) {
-       setStage('quiz');
-     } else {
-       setStage('intro');
-     }
-  }, [currentLesson, store.isReviewSession, setAppState]);
+    const validateAndRecoverLesson = async () => {
+      try {
+        if (!currentLesson) {
+          setAppState(AppState.ROADMAP);
+          return;
+        }
+
+        // Validate the lesson data before proceeding
+        const validation = storageValidator.validateLessonContent(currentLesson);
+        if (!validation.isValid) {
+          console.error('Lesson validation failed:', validation.errors);
+          
+          // Attempt to recover the corrupted lesson
+          try {
+            const recoveryResult = await storageRecovery.recoverLessonContent(
+              currentLesson,
+              currentLesson.chapterId,
+              currentLesson.type
+            );
+            
+            if (recoveryResult.success && recoveryResult.recoveredData) {
+              console.log('Successfully recovered lesson content');
+              // Update the current lesson with recovered data
+              store.setLessonContent(recoveryResult.recoveredData);
+            } else {
+              console.error('Failed to recover lesson:', recoveryResult.error);
+              setAppState(AppState.ROADMAP);
+            }
+          } catch (recoveryError) {
+            console.error('Recovery attempt failed:', recoveryError);
+            setAppState(AppState.ROADMAP);
+          }
+          return;
+        }
+
+        if (store.isReviewSession) {
+          setStage('quiz');
+        } else {
+          setStage('intro');
+        }
+      } catch (error) {
+        console.error('Error in lesson state effect:', error);
+        setAppState(AppState.ROADMAP);
+      }
+    };
+
+    validateAndRecoverLesson();
+  // Run this effect only when the lesson identity or review mode changes
+  // to avoid resetting the stage after each question interaction
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLesson?.chapterId, store.isReviewSession]);
 
   if (!currentLesson) return null;
 
+  // Add safety checks for questions array
+  if (!currentLesson.questions || currentLesson.questions.length === 0) {
+    console.error('Lesson has no questions:', currentLesson);
+    
+    const handleRecoveryAttempt = async () => {
+      try {
+        const recoveryResult = await storageRecovery.recoverLessonContent(
+          currentLesson,
+          currentLesson.chapterId,
+          currentLesson.type
+        );
+        
+        if (recoveryResult.success && recoveryResult.recoveredData) {
+          store.setLessonContent(recoveryResult.recoveredData);
+        } else {
+          console.error('Failed to recover lesson:', recoveryResult.error);
+          setAppState(AppState.ROADMAP);
+        }
+      } catch (error) {
+        console.error('Recovery attempt failed:', error);
+        setAppState(AppState.ROADMAP);
+      }
+    };
+    
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+        <div className="text-red-500 mb-4">
+          <AlertCircle className="w-16 h-16 mx-auto" />
+        </div>
+        <h2 className="text-2xl font-bold mb-4">Lesson Error</h2>
+        <p className="text-gray-600 mb-6">This lesson appears to be incomplete or corrupted.</p>
+        <div className="flex gap-4">
+          <Button onClick={handleRecoveryAttempt} variant="secondary">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Try Recovery
+          </Button>
+          <Button onClick={() => setAppState(AppState.ROADMAP)}>
+            Return to Roadmap
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const question = currentLesson.questions[currentQuestionIndex];
+  if (!question) {
+    console.error('Question not found at index:', currentQuestionIndex);
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+        <div className="text-red-500 mb-4">
+          <AlertCircle className="w-16 h-16 mx-auto" />
+        </div>
+        <h2 className="text-2xl font-bold mb-4">Question Error</h2>
+        <p className="text-gray-600 mb-6">The current question could not be loaded. Please return to the roadmap.</p>
+        <Button onClick={() => setAppState(AppState.ROADMAP)}>
+          Return to Roadmap
+        </Button>
+      </div>
+    );
+  }
+
+  // Validate the current question
+  const questionValidation = storageValidator.validateQuestion(question);
+  if (!questionValidation.isValid) {
+    console.error('Question validation failed:', questionValidation.errors);
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+        <div className="text-red-500 mb-4">
+          <AlertCircle className="w-16 h-16 mx-auto" />
+        </div>
+        <h2 className="text-2xl font-bold mb-4">Question Error</h2>
+        <p className="text-gray-600 mb-6">The current question appears to be corrupted.</p>
+        <Button onClick={() => setAppState(AppState.ROADMAP)}>
+          Return to Roadmap
+        </Button>
+      </div>
+    );
+  }
+  
   const progress = ((currentQuestionIndex) / currentLesson.questions.length) * 100;
 
   const handleCheck = () => {
-    let isCorrect = false;
+    try {
+      let isCorrect = false;
 
-    if (question.type === 'fill-blank') {
-       isCorrect = textAnswer.trim().toLowerCase() === question.correctAnswer.toLowerCase();
-    } else {
-       if (!selectedOption) return;
-       isCorrect = selectedOption.toLowerCase() === question.correctAnswer.toLowerCase();
-    }
-    
-    processAnswer(question.id, isCorrect);
-    
-    if (isCorrect) {
-      setStatus('correct');
-      const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3'); 
-      sound.volume = 0.2;
-      sound.play().catch(() => {});
-    } else {
-      setStatus('wrong');
-      if (!store.isReviewSession) store.loseHeart();
-      const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3');
-      sound.volume = 0.2;
-      sound.play().catch(() => {});
+      if (!question || !question.correctAnswer) {
+        console.error('Invalid question data:', question);
+        // Try to recover by setting a default answer
+        setStatus('wrong');
+        if (!store.isReviewSession) store.loseHeart();
+        return;
+      }
+
+      // Additional validation for question options
+      if (question.type === 'multiple-choice' && (!question.options || question.options.length === 0)) {
+        console.error('Multiple choice question has no options:', question);
+        setStatus('wrong');
+        if (!store.isReviewSession) store.loseHeart();
+        return;
+      }
+
+      if (question.type === 'fill-blank') {
+         isCorrect = textAnswer.trim().toLowerCase() === question.correctAnswer.toLowerCase();
+      } else {
+         if (!selectedOption) return;
+         isCorrect = selectedOption.toLowerCase() === question.correctAnswer.toLowerCase();
+      }
+
+      processAnswer(question.id, isCorrect);
+
+      if (isCorrect) {
+        setStatus('correct');
+        setConsecutiveWrong(0); // Reset streak on correct answer
+        setShowReferenceTip(false);
+        try {
+          const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3');
+          sound.volume = 0.2;
+          sound.play().catch(() => {});
+        } catch (soundError) {
+          console.warn('Sound playback failed:', soundError);
+        }
+      } else {
+        setStatus('wrong');
+        const newConsecutiveWrong = consecutiveWrong + 1;
+        setConsecutiveWrong(newConsecutiveWrong);
+
+        // Show reference tip after threshold consecutive wrong answers
+        if (newConsecutiveWrong >= WRONG_ANSWER_TIP_THRESHOLD) {
+          setShowReferenceTip(true);
+        }
+
+        if (!store.isReviewSession) store.loseHeart();
+        try {
+          const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3');
+          sound.volume = 0.2;
+          sound.play().catch(() => {});
+        } catch (soundError) {
+          console.warn('Sound playback failed:', soundError);
+        }
+      }
+    } catch (error) {
+      console.error('Error in handleCheck:', error);
+      // Reset to idle state on error
+      setStatus('idle');
     }
   };
 
   const handleNext = () => {
-    setStatus('idle');
-    setSelectedOption(null);
-    setTextAnswer('');
-    if (currentQuestionIndex < currentLesson.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-    } else {
-      finishLesson();
+    try {
+      setStatus('idle');
+      setSelectedOption(null);
+      setTextAnswer('');
+      if (currentQuestionIndex < currentLesson.questions.length - 1) {
+        setCurrentQuestionIndex(prev => prev + 1);
+      } else {
+        finishLesson();
+      }
+    } catch (error) {
+      console.error('Error in handleNext:', error);
+      // Fallback: return to roadmap on error
+      setAppState(AppState.ROADMAP);
     }
   };
 
-  const finishLesson = () => {
+  const finishLesson = async () => {
+    try {
+      // Validate lesson completion data before proceeding
+      if (!currentLesson || !currentLesson.questions || currentLesson.questions.length === 0) {
+        console.error('Cannot complete lesson: invalid lesson data', currentLesson);
+        setAppState(AppState.ROADMAP);
+        return;
+      }
+
+      // Trigger confetti with error handling and reduced particle count
       confetti({
-        particleCount: 150,
+        particleCount: 100, // Reduced from 150 to prevent memory issues
         spread: 80,
         origin: { y: 0.6 },
-        colors: ['#34A853', '#1A73E8', '#FBBC04']
+        colors: ['#34A853', '#1A73E8', '#FBBC04'],
+        disableForReducedMotion: true // Respect user accessibility preferences
       });
-      completeLesson(3);
+    } catch (error) {
+      console.warn('Confetti animation failed:', error);
+      // Continue with lesson completion even if confetti fails
+    }
+    
+    // Complete the lesson first, then set stage to avoid race condition
+    completeLesson(3);
+    
+    // Use setTimeout to ensure state updates are properly processed
+    setTimeout(() => {
       setStage('complete');
+    }, 0);
   };
 
   const startActualLesson = () => {
@@ -133,11 +325,23 @@ export const Lesson: React.FC = () => {
                     <CheckCircle className="w-16 h-16 text-gravity-success" />
                  </div>
                  <h1 className="text-4xl font-black text-gravity-text-main-light dark:text-gravity-text-main-dark mb-2 tracking-tight">COMPLETE</h1>
-                 <p className="text-xl text-gravity-success font-bold">+10 XP</p>
+                 <p className="text-xl text-gravity-success font-bold">+{10 + (3 * 5)} XP</p>
               </div>
 
               <div className="w-full max-w-sm space-y-4">
-                 <Button fullWidth variant="primary" onClick={() => setAppState(AppState.ROADMAP)}>
+                 <Button 
+                   fullWidth 
+                   variant="primary" 
+                   onClick={() => {
+                     try {
+                       setAppState(AppState.ROADMAP);
+                     } catch (error) {
+                       console.error('Failed to return to roadmap:', error);
+                       // Fallback: reload the page if state transition fails
+                       window.location.reload();
+                     }
+                   }}
+                 >
                     <LayoutDashboard className="w-5 h-5 mr-2" /> Return to Map
                  </Button>
               </div>
@@ -249,9 +453,16 @@ export const Lesson: React.FC = () => {
 
           {status === 'correct' && (
             <>
-              <div className="flex items-center gap-4 self-start md:self-center">
-                <div className="bg-gravity-success text-white rounded-full p-2"><CheckCircle className="w-8 h-8" /></div>
-                <div className="font-black text-gravity-success text-xl uppercase tracking-wider">Correct</div>
+              <div className="flex items-start gap-4 self-start md:self-center flex-1">
+                <div className="bg-gravity-success text-white rounded-full p-2 shrink-0"><CheckCircle className="w-8 h-8" /></div>
+                <div className="flex-1">
+                  <div className="font-black text-gravity-success text-xl uppercase tracking-wider mb-1">Correct</div>
+                  {question.explanation && (
+                    <div className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark text-sm mt-2 leading-relaxed">
+                      {question.explanation}
+                    </div>
+                  )}
+                </div>
               </div>
               <Button onClick={handleNext} className="w-full md:w-auto bg-gravity-success text-white hover:bg-green-600 border-transparent shadow-lg">Continue</Button>
             </>
@@ -259,11 +470,28 @@ export const Lesson: React.FC = () => {
 
           {status === 'wrong' && (
             <>
-              <div className="flex items-center gap-4 self-start md:self-center w-full">
+              <div className="flex items-start gap-4 self-start md:self-center w-full flex-1">
                  <div className="bg-gravity-danger text-white rounded-full p-2 shrink-0"><AlertCircle className="w-8 h-8" /></div>
                  <div className="flex-1">
                    <div className="font-black text-gravity-danger text-xl uppercase tracking-wider mb-1">Incorrect</div>
                    <div className="text-gravity-danger font-medium text-sm">Correct Answer: {question.correctAnswer}</div>
+                   {question.explanation && (
+                     <div className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark text-sm mt-2 leading-relaxed">
+                       {question.explanation}
+                     </div>
+                   )}
+                   {/* Reference tip after consecutive wrong answers */}
+                   {showReferenceTip && (
+                     <div className="mt-3 p-3 bg-gravity-blue/10 border border-gravity-blue/20 rounded-xl flex items-start gap-2">
+                       <BookOpen className="w-4 h-4 text-gravity-blue shrink-0 mt-0.5" />
+                       <div className="text-sm">
+                         <span className="text-gravity-blue font-medium">Tip:</span>
+                         <span className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark ml-1">
+                           Having trouble? Check the unit&apos;s reference materials for additional learning resources.
+                         </span>
+                       </div>
+                     </div>
+                   )}
                  </div>
               </div>
               <Button onClick={handleNext} className="w-full md:w-auto bg-gravity-danger text-white hover:bg-red-600 border-transparent shadow-lg">Continue</Button>

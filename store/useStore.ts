@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Course, Unit, AppState, LessonContent, ReviewItem, Theme, LoadingState } from '../types';
+import { Course, Unit, AppState, LessonContent, ReviewItem, Theme, LoadingState, UnitReferences } from '../types';
+import { storageValidator } from '../utils/storageValidation';
+import { storageRecovery } from '../services/storageRecovery';
 
 interface GameState {
   appState: AppState;
@@ -35,6 +37,7 @@ interface GameState {
   // Course Management
   deleteUnit: (unitId: string) => void;
   appendUnit: (unit: Unit) => void;
+  setUnitReferences: (unitId: string, references: UnitReferences) => void;
 
   // Lesson & Progress
   startLesson: (unitId: string, chapterId: string, forceType?: 'quiz' | 'interactive' | 'resource') => void;
@@ -145,6 +148,23 @@ export const useStore = create<GameState>()(
           c.id === state.activeCourseId ? { ...c, units: [...c.units, unitToAppend] } : c
         );
         return { courses: newCourses, appState: AppState.ROADMAP };
+      }),
+
+      setUnitReferences: (unitId, references) => set((state) => {
+        if (!state.activeCourseId) return state;
+
+        const newCourses = state.courses.map(course => {
+          if (course.id !== state.activeCourseId) return course;
+
+          const newUnits = course.units.map(unit => {
+            if (unit.id !== unitId) return unit;
+            return { ...unit, references };
+          });
+
+          return { ...course, units: newUnits };
+        });
+
+        return { courses: newCourses };
       }),
 
       startLesson: (unitId, chapterId) => set({
@@ -328,6 +348,117 @@ export const useStore = create<GameState>()(
     }),
     {
       name: 'skillsprout-storage',
+      // Add storage validation and recovery
+      storage: {
+        getItem: async (name) => {
+          try {
+            // Check if we're in a browser environment
+            if (typeof window === 'undefined') {
+              return null;
+            }
+            
+            const storedValue = localStorage.getItem(name);
+            if (!storedValue) return null;
+
+            const parsed = JSON.parse(storedValue);
+            
+            // Validate the stored state
+            if (parsed.state && parsed.state.courses && Array.isArray(parsed.state.courses)) {
+              const validatedCourses = [];
+              const errors = [];
+              
+              for (const course of parsed.state.courses) {
+                const validation = storageValidator.validateCourse(course);
+                if (validation.isValid) {
+                  validatedCourses.push(validation.data || course);
+                } else {
+                  console.warn(`Course validation failed: ${validation.errors.join(', ')}`);
+                  errors.push({ courseId: course.id, errors: validation.errors });
+                  
+                  // Attempt recovery
+                  const recoveryResult = await storageRecovery.recoverCourse(course, course.id);
+                  if (recoveryResult.success && recoveryResult.recoveredData) {
+                    validatedCourses.push(recoveryResult.recoveredData);
+                    console.log(`Successfully recovered course: ${course.id}`);
+                  }
+                }
+              }
+              
+              if (errors.length > 0) {
+                console.warn(`Storage validation found ${errors.length} corrupted courses, recovered ${validatedCourses.length}`);
+              }
+              
+              // Replace courses with validated ones
+              parsed.state.courses = validatedCourses;
+            }
+            
+            return parsed;
+          } catch (error) {
+            console.error('Storage validation error:', error);
+            
+            // If parsing fails completely, attempt to recover
+            if (error instanceof SyntaxError && typeof window !== 'undefined') {
+              console.warn('Storage data is corrupted (SyntaxError), clearing storage');
+              localStorage.removeItem(name);
+              return null;
+            }
+            
+            return null;
+          }
+        },
+        setItem: (name, value) => {
+          try {
+            // Check if we're in a browser environment
+            if (typeof window === 'undefined') {
+              return;
+            }
+            
+            localStorage.setItem(name, JSON.stringify(value));
+          } catch (error) {
+            console.error('Storage write error:', error);
+            
+            // Handle quota exceeded or other storage errors
+            if (error instanceof Error && typeof window !== 'undefined') {
+              if (error.name === 'QuotaExceededError') {
+                console.warn('Storage quota exceeded, attempting cleanup');
+                // Clear old cache data to free up space
+                localStorage.removeItem('skillsprout-cache');
+                // Try again
+                try {
+                  localStorage.setItem(name, JSON.stringify(value));
+                } catch (retryError) {
+                  console.error('Storage write failed after cleanup:', retryError);
+                }
+              }
+            }
+          }
+        },
+        removeItem: (name) => {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(name);
+          }
+        },
+      },
+      // Handle hydration errors
+      onRehydrateStorage: () => {
+        return (state, error) => {
+          if (error) {
+            console.error('Storage rehydration error:', error);
+            
+            // If there's a hydration error, reset to clean state
+            if (state) {
+              state.setAppState(AppState.ONBOARDING);
+              state.courses = [];
+              state.activeCourseId = null;
+              state.currentLesson = null;
+              state.activeUnitId = null;
+              state.activeChapterId = null;
+              
+              console.warn('Reset app to clean state due to storage corruption');
+            }
+          }
+        };
+      },
     }
   )
 );
