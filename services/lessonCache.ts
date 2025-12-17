@@ -1,3 +1,4 @@
+import { openDB, IDBPDatabase } from 'idb';
 import { LessonContent } from '../types';
 import { storageValidator } from '../utils/storageValidation';
 import { storageRecovery } from './storageRecovery';
@@ -47,67 +48,49 @@ export interface CachedRAGContext {
 }
 
 class LessonCacheService {
-  private db: IDBDatabase | null = null;
+  private dbPromise: Promise<IDBPDatabase> | null = null;
   private memoryCache: Map<string, CachedLesson> = new Map();
   private prefetchCache: Map<string, PrefetchedSuggestions> = new Map();
   private ragCache: Map<string, CachedRAGContext> = new Map();
-  private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.initPromise = this.initDB();
-  }
+    if (typeof window !== 'undefined' && window.indexedDB) {
+      this.dbPromise = openDB(DB_NAME, DB_VERSION, {
+        upgrade(db) {
+          if (!db.objectStoreNames.contains(LESSON_STORE)) {
+            const store = db.createObjectStore(LESSON_STORE, { keyPath: 'key' });
+            store.createIndex('expiresAt', 'expiresAt');
+          }
+          if (!db.objectStoreNames.contains(PREFETCH_STORE)) {
+            const store = db.createObjectStore(PREFETCH_STORE, { keyPath: 'key' });
+            store.createIndex('expiresAt', 'expiresAt');
+          }
+          if (!db.objectStoreNames.contains(RAG_STORE)) {
+            const store = db.createObjectStore(RAG_STORE, { keyPath: 'key' });
+            store.createIndex('expiresAt', 'expiresAt');
+          }
+        },
+      });
 
-  private async initDB(): Promise<void> {
-    if (typeof window === 'undefined' || !window.indexedDB) {
+      // Trigger cleanup on startup
+      this.cleanupExpired().catch(console.warn);
+    } else {
       console.warn('IndexedDB not available, using memory cache only');
-      return;
-    }
-
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-      request.onerror = () => {
-        console.warn('IndexedDB error, falling back to memory cache');
-        resolve();
-      };
-
-      request.onsuccess = () => {
-        this.db = request.result;
-        this.cleanupExpired();
-        resolve();
-      };
-
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-
-        if (!db.objectStoreNames.contains(LESSON_STORE)) {
-          const lessonStore = db.createObjectStore(LESSON_STORE, { keyPath: 'key' });
-          lessonStore.createIndex('expiresAt', 'expiresAt', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(PREFETCH_STORE)) {
-          const prefetchStore = db.createObjectStore(PREFETCH_STORE, { keyPath: 'key' });
-          prefetchStore.createIndex('expiresAt', 'expiresAt', { unique: false });
-        }
-
-        // New RAG context store (added in v2)
-        if (!db.objectStoreNames.contains(RAG_STORE)) {
-          const ragStore = db.createObjectStore(RAG_STORE, { keyPath: 'key' });
-          ragStore.createIndex('expiresAt', 'expiresAt', { unique: false });
-        }
-      };
-    });
-  }
-
-  private async ensureReady(): Promise<void> {
-    if (this.initPromise) {
-      await this.initPromise;
     }
   }
 
-  private generateLessonKey(topic: string, chapterTitle: string, type?: string): string {
-    const baseKey = `${topic.toLowerCase().trim()}-${chapterTitle.toLowerCase().trim()}`;
-    return type ? `${baseKey}-${type}` : baseKey;
+  private async getDB(): Promise<IDBPDatabase | null> {
+    if (!this.dbPromise) return null;
+    try {
+      return await this.dbPromise;
+    } catch (error) {
+      console.warn('Failed to open IndexedDB:', error);
+      return null;
+    }
+  }
+
+  generateLessonKey(topic: string, chapterTitle: string, type: string = 'quiz'): string {
+    return `${topic.toLowerCase().trim()}:${chapterTitle.toLowerCase().trim()}:${type}`;
   }
 
   private generatePrefetchKey(courseId: string): string {
@@ -115,7 +98,6 @@ class LessonCacheService {
   }
 
   async getCachedLesson(topic: string, chapterTitle: string, type?: string): Promise<LessonContent | null> {
-    await this.ensureReady();
     const key = this.generateLessonKey(topic, chapterTitle, type);
     const now = Date.now();
 
@@ -141,9 +123,10 @@ class LessonCacheService {
     }
 
     // Check IndexedDB
-    if (this.db) {
+    const db = await this.getDB();
+    if (db) {
       try {
-        const cached = await this.getFromDB<CachedLesson>(LESSON_STORE, key);
+        const cached = await db.get(LESSON_STORE, key) as CachedLesson | undefined;
         if (cached && cached.expiresAt > now) {
           // Validate cached content before using
           const validation = storageValidator.validateLessonContent(cached.content);
@@ -155,7 +138,7 @@ class LessonCacheService {
             console.warn('Invalid lesson content in IndexedDB, attempting recovery:', validation.errors);
             
             // Remove invalid content from IndexedDB
-            await this.deleteFromDB(LESSON_STORE, key);
+            await db.delete(LESSON_STORE, key);
             
             // Attempt recovery
             const recoveryResult = await storageRecovery.recoverLessonContent(cached.content, topic, chapterTitle);
@@ -166,18 +149,19 @@ class LessonCacheService {
               return recoveryResult.recoveredData;
             }
           }
+        } else if (cached) {
+            // Expired, delete it
+            await db.delete(LESSON_STORE, key);
         }
       } catch (error) {
         console.warn('Cache read error, attempting recovery:', error);
         
         // If there's a corrupted entry, try to clean it up
-        if (error instanceof Error && error.message.includes('DataError')) {
-          try {
-            await this.deleteFromDB(LESSON_STORE, key);
+        try {
+            await db.delete(LESSON_STORE, key);
             console.log('Cleaned up corrupted IndexedDB entry');
-          } catch (cleanupError) {
+        } catch (cleanupError) {
             console.warn('Failed to cleanup corrupted entry:', cleanupError);
-          }
         }
       }
     }
@@ -186,7 +170,6 @@ class LessonCacheService {
   }
 
   async cacheLesson(topic: string, chapterTitle: string, content: LessonContent, type?: string): Promise<void> {
-    await this.ensureReady();
     const key = this.generateLessonKey(topic, chapterTitle, type);
     const now = Date.now();
 
@@ -201,9 +184,10 @@ class LessonCacheService {
     this.memoryCache.set(key, cachedLesson);
 
     // Persist to IndexedDB
-    if (this.db) {
+    const db = await this.getDB();
+    if (db) {
       try {
-        await this.putToDB(LESSON_STORE, cachedLesson);
+        await db.put(LESSON_STORE, cachedLesson);
       } catch (error) {
         console.warn('Cache write error:', error);
       }
@@ -211,7 +195,6 @@ class LessonCacheService {
   }
 
   async getCachedPrefetch(courseId: string): Promise<string[] | null> {
-    await this.ensureReady();
     const key = this.generatePrefetchKey(courseId);
     const now = Date.now();
 
@@ -222,9 +205,10 @@ class LessonCacheService {
     }
 
     // Check IndexedDB
-    if (this.db) {
+    const db = await this.getDB();
+    if (db) {
       try {
-        const cached = await this.getFromDB<PrefetchedSuggestions>(PREFETCH_STORE, key);
+        const cached = await db.get(PREFETCH_STORE, key) as PrefetchedSuggestions | undefined;
         if (cached && cached.expiresAt > now) {
           this.prefetchCache.set(key, cached);
           return cached.suggestions;
@@ -238,7 +222,6 @@ class LessonCacheService {
   }
 
   async cachePrefetch(courseId: string, suggestions: string[]): Promise<void> {
-    await this.ensureReady();
     const key = this.generatePrefetchKey(courseId);
     const now = Date.now();
 
@@ -251,9 +234,10 @@ class LessonCacheService {
 
     this.prefetchCache.set(key, cachedPrefetch);
 
-    if (this.db) {
+    const db = await this.getDB();
+    if (db) {
       try {
-        await this.putToDB(PREFETCH_STORE, cachedPrefetch);
+        await db.put(PREFETCH_STORE, cachedPrefetch);
       } catch (error) {
         console.warn('Prefetch cache write error:', error);
       }
@@ -267,7 +251,6 @@ class LessonCacheService {
   }
 
   async getCachedRAGContext(topic: string, chapterTitle: string): Promise<CachedRAGContext | null> {
-    await this.ensureReady();
     const key = this.generateRAGKey(topic, chapterTitle);
     const now = Date.now();
 
@@ -278,9 +261,10 @@ class LessonCacheService {
     }
 
     // Check IndexedDB
-    if (this.db) {
+    const db = await this.getDB();
+    if (db) {
       try {
-        const cached = await this.getFromDB<CachedRAGContext>(RAG_STORE, key);
+        const cached = await db.get(RAG_STORE, key) as CachedRAGContext | undefined;
         if (cached && cached.expiresAt > now) {
           this.ragCache.set(key, cached);
           return cached;
@@ -293,33 +277,27 @@ class LessonCacheService {
     return null;
   }
 
-  async cacheRAGContext(
-    topic: string,
-    chapterTitle: string,
-    results: RAGSearchResult[],
-    facts: string[],
-    summary: string
-  ): Promise<void> {
-    await this.ensureReady();
+  async cacheRAGContext(topic: string, chapterTitle: string, context: { results: RAGSearchResult[], facts: string[], summary: string }): Promise<void> {
     const key = this.generateRAGKey(topic, chapterTitle);
     const now = Date.now();
 
-    const cachedRAG: CachedRAGContext = {
+    const cachedContext: CachedRAGContext = {
       key,
       topic,
       chapterTitle,
-      results,
-      facts,
-      summary,
+      results: context.results,
+      facts: context.facts,
+      summary: context.summary,
       timestamp: now,
       expiresAt: now + RAG_CACHE_TTL,
     };
 
-    this.ragCache.set(key, cachedRAG);
+    this.ragCache.set(key, cachedContext);
 
-    if (this.db) {
+    const db = await this.getDB();
+    if (db) {
       try {
-        await this.putToDB(RAG_STORE, cachedRAG);
+        await db.put(RAG_STORE, cachedContext);
       } catch (error) {
         console.warn('RAG cache write error:', error);
       }
@@ -327,7 +305,6 @@ class LessonCacheService {
   }
 
   async invalidateLessonCache(topic: string, chapterTitle: string): Promise<void> {
-    await this.ensureReady();
     const key = this.generateLessonKey(topic, chapterTitle);
 
     // Remove from memory cache (all types)
@@ -338,16 +315,17 @@ class LessonCacheService {
     }
 
     // Remove from IndexedDB
-    if (this.db) {
+    const db = await this.getDB();
+    if (db) {
       try {
-        const transaction = this.db.transaction(LESSON_STORE, 'readwrite');
-        const store = transaction.objectStore(LESSON_STORE);
+        const tx = db.transaction(LESSON_STORE, 'readwrite');
+        const store = tx.objectStore(LESSON_STORE);
 
         // Delete all variations of this lesson
+        // IDB doesn't support prefix deletion easily, so we just delete known variations
         const keysToDelete = [key, `${key}-quiz`, `${key}-interactive`, `${key}-resource`];
-        for (const k of keysToDelete) {
-          store.delete(k);
-        }
+        await Promise.all(keysToDelete.map(k => store.delete(k)));
+        await tx.done;
       } catch (error) {
         console.warn('Cache invalidation error:', error);
       }
@@ -355,133 +333,47 @@ class LessonCacheService {
   }
 
   async clearAllCache(): Promise<void> {
-    await this.ensureReady();
     this.memoryCache.clear();
     this.prefetchCache.clear();
     this.ragCache.clear();
 
-    if (this.db) {
+    const db = await this.getDB();
+    if (db) {
       try {
-        const transaction = this.db.transaction([LESSON_STORE, PREFETCH_STORE, RAG_STORE], 'readwrite');
-        transaction.objectStore(LESSON_STORE).clear();
-        transaction.objectStore(PREFETCH_STORE).clear();
-        transaction.objectStore(RAG_STORE).clear();
+        await db.clear(LESSON_STORE);
+        await db.clear(PREFETCH_STORE);
+        await db.clear(RAG_STORE);
       } catch (error) {
-        console.warn('Cache clear error:', error);
+        console.warn('Clear all cache error:', error);
       }
     }
   }
 
   private async cleanupExpired(): Promise<void> {
-    if (!this.db) return;
+    const db = await this.getDB();
+    if (!db) return;
 
     const now = Date.now();
+    const stores = [LESSON_STORE, PREFETCH_STORE, RAG_STORE];
 
-    try {
-      const transaction = this.db.transaction([LESSON_STORE, PREFETCH_STORE, RAG_STORE], 'readwrite');
-
-      // Clean lesson store
-      const lessonStore = transaction.objectStore(LESSON_STORE);
-      const lessonIndex = lessonStore.index('expiresAt');
-      const lessonRange = IDBKeyRange.upperBound(now);
-      const lessonCursor = lessonIndex.openCursor(lessonRange);
-
-      lessonCursor.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-        if (cursor) {
-          cursor.delete();
-          cursor.continue();
+    for (const storeName of stores) {
+      try {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const index = store.index('expiresAt');
+        
+        let cursor = await index.openCursor(IDBKeyRange.upperBound(now));
+        
+        while (cursor) {
+          await cursor.delete();
+          cursor = await cursor.continue();
         }
-      };
-
-      // Clean prefetch store
-      const prefetchStore = transaction.objectStore(PREFETCH_STORE);
-      const prefetchIndex = prefetchStore.index('expiresAt');
-      const prefetchRange = IDBKeyRange.upperBound(now);
-      const prefetchCursor = prefetchIndex.openCursor(prefetchRange);
-
-      prefetchCursor.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-        if (cursor) {
-          cursor.delete();
-          cursor.continue();
-        }
-      };
-
-      // Clean RAG store
-      const ragStore = transaction.objectStore(RAG_STORE);
-      const ragIndex = ragStore.index('expiresAt');
-      const ragRange = IDBKeyRange.upperBound(now);
-      const ragCursor = ragIndex.openCursor(ragRange);
-
-      ragCursor.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-        if (cursor) {
-          cursor.delete();
-          cursor.continue();
-        }
-      };
-    } catch (error) {
-      console.warn('Cache cleanup error:', error);
-    }
-
-    // Also clean memory caches
-    for (const [key, value] of this.memoryCache.entries()) {
-      if (value.expiresAt <= now) {
-        this.memoryCache.delete(key);
+        
+        await tx.done;
+      } catch (error) {
+        console.warn(`Cleanup error for ${storeName}:`, error);
       }
     }
-
-    for (const [key, value] of this.prefetchCache.entries()) {
-      if (value.expiresAt <= now) {
-        this.prefetchCache.delete(key);
-      }
-    }
-
-    for (const [key, value] of this.ragCache.entries()) {
-      if (value.expiresAt <= now) {
-        this.ragCache.delete(key);
-      }
-    }
-  }
-
-  private async getFromDB<T>(storeName: string, key: string): Promise<T | null> {
-    if (!this.db) return null;
-
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(storeName, 'readonly');
-      const store = transaction.objectStore(storeName);
-      const request = store.get(key);
-
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  private async putToDB<T>(storeName: string, data: T): Promise<void> {
-    if (!this.db) return;
-
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(storeName, 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.put(data);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  private async deleteFromDB(storeName: string, key: string): Promise<void> {
-    if (!this.db) return;
-
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(storeName, 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.delete(key);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
   }
 
   getCacheStats(): { memoryLessons: number; memoryPrefetch: number } {

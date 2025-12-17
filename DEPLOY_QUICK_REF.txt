@@ -1,0 +1,203 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║              SKILLSPROUT 1GB VM DEPLOYMENT - QUICK REFERENCE                  ║
+║                    Optimized for AMD/ARM Ubuntu 1GB RAM                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🚀 DEPLOYMENT (2 Steps)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SSH into your VM:
+    ssh root@YOUR_SERVER_IP
+
+Run deployment script:
+    wget https://raw.githubusercontent.com/USER/repo/main/deploy-low-mem.sh
+    chmod +x deploy-low-mem.sh
+    sudo ./deploy-low-mem.sh https://github.com/USER/skillsprout.git 3000
+
+Update API keys:
+    sudo nano /home/skillsprout/app/.env.local
+
+Start service:
+    sudo systemctl start skillsprout
+
+Access app:
+    http://YOUR_SERVER_IP:3000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🔑 API KEYS REQUIRED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After deployment, update /home/skillsprout/app/.env.local:
+
+GROQ_API_KEY=gsk_your_key_here
+    Get from: https://console.groq.com/keys
+
+GEMINI_API_KEY=AIzaSy_your_key_here
+    Get from: https://aistudio.google.com/app/apikey
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ⚙️  SERVICE COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Start service:
+    sudo systemctl start skillsprout
+
+Stop service:
+    sudo systemctl stop skillsprout
+
+Restart service:
+    sudo systemctl restart skillsprout
+
+Check status:
+    sudo systemctl status skillsprout
+
+View logs (live):
+    sudo journalctl -u skillsprout -f
+
+View last 50 logs:
+    sudo journalctl -u skillsprout -n 50
+
+Enable auto-start on boot:
+    sudo systemctl enable skillsprout
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🔍 VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Check if running:
+    sudo systemctl is-active skillsprout
+
+Check port:
+    sudo lsof -i :3000
+
+Check memory:
+    free -h
+
+Check swap (should show 2GB):
+    swapon --show
+
+Test app:
+    curl http://localhost:3000/api/health
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🔥 FIREWALL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Open port with UFW:
+    sudo ufw allow 3000/tcp
+    sudo ufw allow 22/tcp    # SSH (don't lock yourself out!)
+    sudo ufw enable
+
+Open port with iptables:
+    sudo iptables -I INPUT -p tcp --dport 3000 -j ACCEPT
+    sudo iptables-save | sudo tee /etc/iptables/rules.v4
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🆘 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Service won't start:
+    └─ Check logs: sudo journalctl -u skillsprout -n 50
+    └─ Verify API keys: sudo nano /home/skillsprout/app/.env.local
+    └─ Check build: ls -la /home/skillsprout/app/.next/
+
+Out of memory:
+    └─ Check swap: free -h
+    └─ Restart service: sudo systemctl restart skillsprout
+
+Port already in use:
+    └─ Find process: sudo lsof -i :3000
+    └─ Kill process: sudo kill -9 <PID>
+
+Can't access from browser:
+    └─ Check firewall: sudo ufw status
+    └─ Check service: sudo systemctl status skillsprout
+    └─ Check port: sudo netstat -tlnp | grep 3000
+
+Build failed:
+    └─ Clear and rebuild:
+        cd /home/skillsprout/app
+        sudo -u skillsprout rm -rf .next node_modules
+        sudo -u skillsprout npm install
+        sudo -u skillsprout npm run build
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🔄 UPDATE APP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Quick update:
+    sudo systemctl stop skillsprout
+    cd /home/skillsprout/app
+    sudo -u skillsprout git pull
+    sudo -u skillsprout npm install
+    sudo -u skillsprout npm run build
+    sudo systemctl start skillsprout
+    sudo systemctl status skillsprout
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 📂 FILE LOCATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+App directory:       /home/skillsprout/app/
+Environment file:    /home/skillsprout/app/.env.local
+Service file:        /etc/systemd/system/skillsprout.service
+Swap file:           /swapfile (2GB)
+Logs:                sudo journalctl -u skillsprout
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 💾 MEMORY OPTIMIZATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The deployment script automatically:
+    ✓ Creates 2GB swap space (critical for 1GB RAM)
+    ✓ Limits Node.js to 768MB heap
+    ✓ Limits service to 900MB max memory
+    ✓ Uses sequential npm install (slower but safer)
+    ✓ Omits dev dependencies
+
+Expected performance:
+    npm install:  5-10 minutes
+    npm build:    10-15 minutes
+    Runtime:      300-500 MB
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ✅ POST-DEPLOYMENT CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+□ Deployment script completed without errors
+□ API keys added to /home/skillsprout/app/.env.local
+□ Service is running: sudo systemctl status skillsprout
+□ Port 3000 is open in firewall
+□ Can access http://YOUR_SERVER_IP:3000
+□ No errors in logs: sudo journalctl -u skillsprout -n 20
+□ Swap is active: free -h shows 2G swap
+□ Auto-start enabled: sudo systemctl is-enabled skillsprout
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🌐 ACCESSING YOUR APP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Find your server IP:
+    hostname -I | awk '{print $1}'
+
+Access app at:
+    http://YOUR_SERVER_IP:3000
+
+For production:
+    1. Setup Nginx reverse proxy
+    2. Setup SSL with Let's Encrypt
+    3. Use domain name instead of IP
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 📚 FULL DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+See DEPLOY_1GB_VM.md for complete guide including:
+    - Detailed troubleshooting
+    - Security hardening
+    - Nginx setup
+    - SSL configuration
+    - Monitoring setup
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

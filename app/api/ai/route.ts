@@ -717,25 +717,47 @@ Requirements:
 6. Vary question formats - some direct, some scenario-based, some application-based
 7. Explanations should teach, not just confirm
 
-Question Type Guidelines:
-- multiple-choice: 4 options, one clearly correct, distractors should be plausible
-- fill-blank: Use ___ for the blank, answer should be 1-3 words
-- true-false: Include subtle nuances that require understanding
+CRITICAL FORMATTING RULES (MUST FOLLOW EXACTLY):
+- multiple-choice:
+  * Create EXACTLY 4 options
+  * The FIRST option in the "options" array MUST BE the correct answer
+  * Do NOT use letter prefixes like A), B), C), D) - just plain text
+  * Make distractors plausible but clearly wrong
+  * The "correctAnswer" field should contain the EXACT TEXT of the first option (no prefix)
+  * Frontend will shuffle options randomly for display
+
+- fill-blank:
+  * Use ___ for the blank in the question
+  * Answer should be 1-3 words maximum
+  * correctAnswer should be lowercase for consistency
+
+- true-false:
+  * correctAnswer should be exactly "True" or "False" (capitalized)
+  * Include subtle nuances that require understanding
 
 ${ragContext ? 'IMPORTANT: Incorporate the real-world context and facts provided above into your questions.' : ''}
 
-Return ONLY valid JSON:
+Return ONLY valid JSON (no markdown, no extra text):
 {
   "intro": "Engaging introduction",
   "questions": [
     {
       "type": "multiple-choice" | "fill-blank" | "true-false",
       "question": "Question text",
-      "options": ["A", "B", "C", "D"] (multiple-choice only),
-      "correctAnswer": "Exact answer",
+      "options": ["Correct answer FIRST", "Wrong answer 2", "Wrong answer 3", "Wrong answer 4"],
+      "correctAnswer": "Correct answer FIRST",
       "explanation": "Educational explanation"
     }
   ]
+}
+
+EXAMPLE (multiple-choice):
+{
+  "type": "multiple-choice",
+  "question": "What is the capital of France?",
+  "options": ["Paris", "London", "Berlin", "Madrid"],
+  "correctAnswer": "Paris",
+  "explanation": "Paris has been the capital of France since the 12th century."
 }`;
 
   return generateWithAI(
@@ -794,7 +816,13 @@ Requirements:
 
 Preferred resource types for this category: ${template.resourceTypes.join(', ')}
 
-Return ONLY valid JSON:
+CRITICAL FORMATTING RULES (MUST FOLLOW EXACTLY):
+- The FIRST option in the "options" array MUST BE the correct answer
+- Do NOT use letter prefixes like A), B), C), D) - just plain text
+- The "correctAnswer" field should contain the EXACT TEXT of the first option
+- Frontend will shuffle options randomly for display
+
+Return ONLY valid JSON (no markdown, no extra text):
 {
   "resource": {
     "url": "https://...",
@@ -806,8 +834,8 @@ Return ONLY valid JSON:
     {
       "type": "multiple-choice",
       "question": "Question about the content",
-      "options": ["A", "B", "C", "D"],
-      "correctAnswer": "Correct option",
+      "options": ["Correct answer FIRST", "Wrong answer 2", "Wrong answer 3", "Wrong answer 4"],
+      "correctAnswer": "Correct answer FIRST",
       "explanation": "Why this is correct"
     }
   ]
@@ -904,12 +932,14 @@ Return ONLY valid JSON:
     {
       "type": "multiple-choice",
       "question": "Follow-up question",
-      "options": ["A", "B", "C", "D"],
-      "correctAnswer": "A",
+      "options": ["Correct answer FIRST", "Wrong answer 2", "Wrong answer 3", "Wrong answer 4"],
+      "correctAnswer": "Correct answer FIRST",
       "explanation": "Educational explanation"
     }
   ]
-}`;
+}
+
+CRITICAL: For quiz questions, the FIRST option MUST be the correct answer. No letter prefixes. Frontend will shuffle.`;
 
   return generateWithAI(
     prompt,

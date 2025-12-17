@@ -1,0 +1,188 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                  SKILLSPROUT - ARM QUICK START GUIDE                          ║
+║                    Production Server on ARM-based Ubuntu                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ⚡ FASTEST WAY TO START (Copy & Paste)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# 1. Setup Node.js (if not already installed)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.bashrc
+nvm install 20
+
+# 2. Clone and setup
+git clone <your-repo> ~/skillsprout
+cd ~/skillsprout
+
+# 3. Create environment file
+cat > .env.local << 'EOF'
+GROQ_API_KEY=your_groq_key_here
+GEMINI_API_KEY=your_gemini_key_here
+NEXT_PUBLIC_API_ENDPOINT=/api/ai
+EOF
+
+# 4. Install and build
+npm install
+npm run build
+
+# 5. Start server (choose one):
+
+   # Option A: Simple start
+   npm start
+
+   # Option B: Using script (logging)
+   chmod +x start-prod-arm.sh
+   ./start-prod-arm.sh
+
+   # Option C: As system service (production)
+   sudo ./setup-systemd-arm.sh
+   sudo systemctl start skillsprout
+   sudo systemctl status skillsprout
+
+# 6. Access at http://localhost:3000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 📝 STARTUP SCRIPTS PROVIDED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. start-prod-arm.sh
+   └─ Simple production startup script
+   └─ Handles: checks, build, logging, startup
+   └─ Usage: ./start-prod-arm.sh [port] [env]
+   └─ Examples:
+        ./start-prod-arm.sh              # Port 3000, production
+        ./start-prod-arm.sh 8080         # Port 8080, production
+        ./start-prod-arm.sh 3000 dev     # Port 3000, development
+
+2. setup-systemd-arm.sh
+   └─ Creates systemd service (for production)
+   └─ Auto-restart, logging, persistence
+   └─ Usage: sudo ./setup-systemd-arm.sh [app_path] [port]
+   └─ Commands:
+        sudo systemctl start skillsprout    # Start
+        sudo systemctl stop skillsprout     # Stop
+        sudo systemctl restart skillsprout  # Restart
+        sudo journalctl -u skillsprout -f   # View logs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🔑 API KEYS SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Required APIs (Free Tier):
+
+1. Groq API
+   └─ Get from: https://console.groq.com/keys
+   └─ Add to .env.local: GROQ_API_KEY=your_key
+
+2. Google Gemini API
+   └─ Get from: https://aistudio.google.com/app/apikey
+   └─ Add to .env.local: GEMINI_API_KEY=your_key
+
+Optional APIs (Enhanced Search):
+
+3. Brave Search API
+   └─ Add to .env.local: BRAVE_SEARCH_API_KEY=your_key
+
+4. Serper API
+   └─ Add to .env.local: SERPER_API_KEY=your_key
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🔧 COMMON COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Check if Node.js is installed
+node -v
+npm -v
+
+# Install dependencies
+npm install
+
+# Build for production
+npm run build
+
+# Start development server
+npm run dev
+
+# Start production server
+npm start
+
+# Using custom port
+PORT=8080 npm start
+
+# Check if port is in use
+lsof -i :3000
+
+# View logs (with script)
+tail -f logs/prod-server.log
+
+# View logs (systemd service)
+sudo journalctl -u skillsprout -f
+
+# Restart server (systemd)
+sudo systemctl restart skillsprout
+
+# Enable auto-start on boot
+sudo systemctl enable skillsprout
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🌐 ACCESSING YOUR SERVER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Local (on the machine):
+   http://localhost:3000
+
+Remote (from another device):
+   http://<server-ip>:3000
+   http://<server-domain>:3000
+
+Examples:
+   http://192.168.1.100:3000        (Local network)
+   http://my-server.com:3000        (Domain)
+   http://203.0.113.42:3000         (Public IP)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 🚨 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem: "command not found: npm"
+Solution: Install Node.js via NVM (see above)
+
+Problem: "Port 3000 already in use"
+Solution: Use different port: ./start-prod-arm.sh 8080
+
+Problem: ".env.local not found"
+Solution: Create it with your API keys (see API KEYS SETUP above)
+
+Problem: "Build fails"
+Solution: rm -rf .next node_modules && npm install && npm run build
+
+Problem: "Server crashes after restart"
+Solution: Check logs: tail -f logs/prod-server.log
+         Update API keys if missing
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 📚 FULL DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For complete setup guide, security, monitoring, and more:
+   See: PROD_STARTUP_ARM.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ✅ SUCCESS CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+□ Node.js 20+ installed
+□ Repository cloned
+□ .env.local created with API keys
+□ npm install completed
+□ npm run build completed
+□ Server started (npm start)
+□ Can access http://localhost:3000
+□ Firewall port opened (if on network)
+□ Systemd service setup (if production)
+
+When all checked: You're ready to go! 🚀
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

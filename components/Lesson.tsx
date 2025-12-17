@@ -12,6 +12,24 @@ import { InteractiveStage } from './interactive/InteractiveStage';
 // Number of consecutive wrong answers before showing reference tip
 const WRONG_ANSWER_TIP_THRESHOLD = 2;
 
+// Fisher-Yates shuffle algorithm for randomizing options
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+// Normalize text for comparison (remove prefixes, trim, lowercase)
+function normalizeAnswer(text: string): string {
+  return text
+    .replace(/^[A-D]\)\s*/i, '') // Remove A), B), C), D) prefixes
+    .trim()
+    .toLowerCase();
+}
+
 export const Lesson: React.FC = () => {
   const store = useStore();
   const { currentLesson, hearts, setAppState, completeLesson, processAnswer } = store;
@@ -23,6 +41,7 @@ export const Lesson: React.FC = () => {
   const [stage, setStage] = useState<'intro' | 'interactive' | 'resource' | 'quiz' | 'complete'>('intro');
   const [consecutiveWrong, setConsecutiveWrong] = useState(0);
   const [showReferenceTip, setShowReferenceTip] = useState(false);
+  const [shuffledOptions, setShuffledOptions] = useState<string[]>([]);
 
   useEffect(() => {
     const validateAndRecoverLesson = async () => {
@@ -76,6 +95,19 @@ export const Lesson: React.FC = () => {
   // to avoid resetting the stage after each question interaction
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentLesson?.chapterId, store.isReviewSession]);
+
+  // Shuffle options when question changes
+  useEffect(() => {
+    if (!currentLesson || !currentLesson.questions) return;
+
+    const question = currentLesson.questions[currentQuestionIndex];
+    if (question && question.type === 'multiple-choice' && question.options) {
+      // Shuffle options for display
+      setShuffledOptions(shuffleArray(question.options));
+    } else {
+      setShuffledOptions([]);
+    }
+  }, [currentQuestionIndex, currentLesson]);
 
   if (!currentLesson) return null;
 
@@ -181,10 +213,15 @@ export const Lesson: React.FC = () => {
       }
 
       if (question.type === 'fill-blank') {
-         isCorrect = textAnswer.trim().toLowerCase() === question.correctAnswer.toLowerCase();
+         isCorrect = normalizeAnswer(textAnswer) === normalizeAnswer(question.correctAnswer);
       } else {
          if (!selectedOption) return;
-         isCorrect = selectedOption.toLowerCase() === question.correctAnswer.toLowerCase();
+
+         // Normalize both selected and correct answers to handle any format inconsistencies
+         const selectedNormalized = normalizeAnswer(selectedOption);
+         const correctNormalized = normalizeAnswer(question.correctAnswer);
+
+         isCorrect = selectedNormalized === correctNormalized;
       }
 
       processAnswer(question.id, isCorrect);
@@ -287,15 +324,15 @@ export const Lesson: React.FC = () => {
   if (stage === 'intro') {
      return (
         <div className="min-h-screen flex flex-col p-6 items-center justify-center text-center max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-           <h2 className="text-2xl font-black text-gravity-blue mb-6 uppercase tracking-wider">
+           <h2 className="text-2xl font-black text-blue-600 mb-6 uppercase tracking-wider">
               {currentLesson.type === 'interactive' ? "Interactive Module" : "Knowledge Download"}
            </h2>
-           <div className="bg-gravity-surface-light dark:bg-gravity-surface-dark p-8 rounded-3xl mb-12 shadow-xl border border-gravity-border-light dark:border-gravity-border-dark">
-             <p className="text-lg text-gravity-text-main-light dark:text-gravity-text-main-dark leading-relaxed font-medium">
+           <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl mb-12 shadow-xl border border-gray-200 dark:border-gray-600">
+             <p className="text-lg text-gray-900 dark:text-gray-100 leading-relaxed font-medium">
                {currentLesson.intro}
              </p>
            </div>
-           <Button fullWidth size="lg" onClick={startActualLesson} className="shadow-lg shadow-gravity-blue/30">Start Session</Button>
+           <Button fullWidth size="lg" onClick={startActualLesson} className="shadow-lg shadow-blue-500/30">Start Session</Button>
         </div>
      );
   }
@@ -308,7 +345,7 @@ export const Lesson: React.FC = () => {
      return (
         <div className="h-screen p-4 flex flex-col overflow-hidden">
             <div className="mb-4 flex items-center justify-between shrink-0">
-               <button onClick={() => setAppState(AppState.ROADMAP)}><X className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark hover:text-gravity-danger" /></button>
+               <button onClick={() => setAppState(AppState.ROADMAP)}><X className="text-gray-500 dark:text-gray-400 hover:text-red-500" /></button>
             </div>
             <div className="flex-1 overflow-y-auto">
                <InteractiveStage config={currentLesson.interactiveConfig} onComplete={() => setStage('quiz')} />
@@ -321,10 +358,10 @@ export const Lesson: React.FC = () => {
       return (
           <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
               <div className="mb-8 animate-bounce">
-                 <div className="w-32 h-32 bg-gravity-success/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl border border-gravity-success/20">
-                    <CheckCircle className="w-16 h-16 text-gravity-success" />
+                 <div className="w-32 h-32 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl border border-green-200">
+                    <CheckCircle className="w-16 h-16 text-green-600" />
                  </div>
-                 <h1 className="text-4xl font-black text-gravity-text-main-light dark:text-gravity-text-main-dark mb-2 tracking-tight">COMPLETE</h1>
+                 <h1 className="text-4xl font-black text-gray-900 dark:text-gray-100 mb-2 tracking-tight">COMPLETE</h1>
                  <p className="text-xl text-gravity-success font-bold">+{10 + (3 * 5)} XP</p>
               </div>
 
@@ -353,16 +390,16 @@ export const Lesson: React.FC = () => {
     <div className="h-screen flex flex-col max-w-2xl mx-auto relative overflow-hidden">
       <div className="px-4 py-6 flex items-center gap-4 relative z-10 shrink-0">
         <button onClick={() => setAppState(AppState.ROADMAP)}>
-          <X className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark w-6 h-6 hover:bg-black/5 rounded-full" />
+          <X className="text-gray-500 dark:text-gray-400 w-6 h-6 hover:bg-black/5 rounded-full" />
         </button>
-        <div className="flex-1 h-3 bg-gravity-surface-light dark:bg-gravity-surface-dark rounded-full overflow-hidden border border-gravity-border-light dark:border-gravity-border-dark">
+        <div className="flex-1 h-3 bg-white dark:bg-gray-800 rounded-full overflow-hidden border border-gray-200 dark:border-gray-600">
           <div 
-            className="h-full bg-gravity-success transition-all duration-500 ease-out"
+            className="h-full bg-green-600 transition-all duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
         {!store.isReviewSession && (
-          <div className="flex items-center gap-1 text-gravity-danger font-bold text-lg">
+          <div className="flex items-center gap-1 text-red-500 font-bold text-lg">
             <Heart className="fill-current w-5 h-5" />
             <span>{hearts}</span>
           </div>
@@ -370,13 +407,13 @@ export const Lesson: React.FC = () => {
       </div>
 
       <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-32">
-        <h2 className="text-sm font-bold text-gravity-text-sub-light dark:text-gravity-text-sub-dark mb-6 mt-4 uppercase tracking-widest">
+        <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-6 mt-4 uppercase tracking-widest">
           {question.type === 'fill-blank' && 'Input Answer'}
           {question.type === 'true-false' && 'True or False'}
           {question.type === 'multiple-choice' && 'Select One'}
         </h2>
         
-        <div className="mb-12 text-2xl text-gravity-text-main-light dark:text-gravity-text-main-dark font-medium leading-relaxed">
+        <div className="mb-12 text-2xl text-gray-900 dark:text-gray-100 font-medium leading-relaxed">
            {question.question}
         </div>
 
@@ -388,7 +425,7 @@ export const Lesson: React.FC = () => {
                   value={textAnswer}
                   onChange={(e) => setTextAnswer(e.target.value)}
                   placeholder="Type here..."
-                  className="w-full p-6 text-xl bg-gravity-surface-light dark:bg-gravity-surface-dark border-2 border-gravity-border-light dark:border-gravity-border-dark text-gravity-text-main-light dark:text-gravity-text-main-dark rounded-2xl focus:border-gravity-blue focus:outline-none transition-all"
+                  className="w-full p-6 text-xl bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-2xl focus:border-blue-500 focus:outline-none transition-all"
                   disabled={status !== 'idle'}
                   autoFocus
                 />
@@ -401,28 +438,29 @@ export const Lesson: React.FC = () => {
                 className={`
                   p-6 border-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center justify-between group shadow-sm
                   ${selectedOption === option 
-                    ? 'bg-gravity-blue/5 border-gravity-blue text-gravity-blue' 
-                    : 'bg-gravity-surface-light dark:bg-gravity-surface-dark border-gravity-border-light dark:border-gravity-border-dark hover:bg-gray-50 dark:hover:bg-gray-800 text-gravity-text-main-light dark:text-gravity-text-main-dark'}
+                    ? 'bg-blue-50 border-blue-500 text-blue-600' 
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100'}
                   ${status !== 'idle' && 'cursor-default'}
                 `}
               >
                 <span className="font-semibold text-lg">{option}</span>
                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ml-4
-                  ${selectedOption === option ? 'border-gravity-blue bg-gravity-blue' : 'border-gravity-text-sub-light dark:border-gravity-text-sub-dark'}
+                  ${selectedOption === option ? 'border-blue-500 bg-blue-500' : 'border-gray-400 dark:border-gray-500'}
                 `}>
                   {selectedOption === option && <div className="w-2 h-2 bg-white rounded-full" />}
                 </div>
               </div>
             ))
           ) : (
-            question.options?.map((option, idx) => (
-              <div 
+            // Use shuffled options for multiple-choice questions
+            (shuffledOptions.length > 0 ? shuffledOptions : question.options || []).map((option, idx) => (
+              <div
                 key={idx}
                 onClick={() => status === 'idle' && setSelectedOption(option)}
                 className={`
                   p-6 border-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center justify-between group shadow-sm
-                  ${selectedOption === option 
-                    ? 'bg-gravity-blue/5 border-gravity-blue text-gravity-blue' 
+                  ${selectedOption === option
+                    ? 'bg-gravity-blue/5 border-gravity-blue text-gravity-blue'
                     : 'bg-gravity-surface-light dark:bg-gravity-surface-dark border-gravity-border-light dark:border-gravity-border-dark hover:bg-gray-50 dark:hover:bg-gray-800 text-gravity-text-main-light dark:text-gravity-text-main-dark'}
                   ${status !== 'idle' && 'cursor-default'}
                 `}
@@ -442,8 +480,8 @@ export const Lesson: React.FC = () => {
       <div className={`
         fixed bottom-0 left-0 right-0 border-t border-gravity-border-light dark:border-gravity-border-dark p-6 transition-all transform duration-300 ease-out z-30
         ${status === 'idle' ? 'bg-gravity-light dark:bg-gravity-dark' : ''}
-        ${status === 'correct' ? 'bg-gravity-success/10' : ''}
-        ${status === 'wrong' ? 'bg-gravity-danger/10' : ''}
+        ${status === 'correct' ? 'bg-gravity-success/50' : ''}
+        ${status === 'wrong' ? 'bg-gravity-danger/50' : ''}
       `}>
         <div className="max-w-2xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           
@@ -458,7 +496,7 @@ export const Lesson: React.FC = () => {
                 <div className="flex-1">
                   <div className="font-black text-gravity-success text-xl uppercase tracking-wider mb-1">Correct</div>
                   {question.explanation && (
-                    <div className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark text-sm mt-2 leading-relaxed">
+                    <div className="text-gray-900 dark:text-gray-100 text-sm mt-2 leading-relaxed">
                       {question.explanation}
                     </div>
                   )}
@@ -474,9 +512,9 @@ export const Lesson: React.FC = () => {
                  <div className="bg-gravity-danger text-white rounded-full p-2 shrink-0"><AlertCircle className="w-8 h-8" /></div>
                  <div className="flex-1">
                    <div className="font-black text-gravity-danger text-xl uppercase tracking-wider mb-1">Incorrect</div>
-                   <div className="text-gravity-danger font-medium text-sm">Correct Answer: {question.correctAnswer}</div>
+                   <div className="text-gray-900 dark:text-gray-100 font-bold text-sm">Correct Answer: {question.correctAnswer}</div>
                    {question.explanation && (
-                     <div className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark text-sm mt-2 leading-relaxed">
+                     <div className="text-gray-900 dark:text-gray-100 text-sm mt-2 leading-relaxed">
                        {question.explanation}
                      </div>
                    )}
@@ -486,7 +524,7 @@ export const Lesson: React.FC = () => {
                        <BookOpen className="w-4 h-4 text-gravity-blue shrink-0 mt-0.5" />
                        <div className="text-sm">
                          <span className="text-gravity-blue font-medium">Tip:</span>
-                         <span className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark ml-1">
+                         <span className="text-gray-700 dark:text-gray-300 ml-1">
                            Having trouble? Check the unit&apos;s reference materials for additional learning resources.
                          </span>
                        </div>
