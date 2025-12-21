@@ -438,14 +438,14 @@ export const Lesson: React.FC = () => {
                 className={`
                   p-6 border-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center justify-between group shadow-sm
                   ${selectedOption === option 
-                    ? 'bg-blue-50 border-blue-500 text-blue-600' 
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100'}
+                    ? 'bg-gravity-blue/5 border-gravity-blue text-gravity-blue' 
+                    : 'bg-gravity-surface-light dark:bg-gravity-surface-dark border-gravity-border-light dark:border-gravity-border-dark hover:bg-gray-50 dark:hover:bg-gray-800 text-gravity-text-main-light dark:text-gravity-text-main-dark'}
                   ${status !== 'idle' && 'cursor-default'}
                 `}
               >
                 <span className="font-semibold text-lg">{option}</span>
                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ml-4
-                  ${selectedOption === option ? 'border-blue-500 bg-blue-500' : 'border-gray-400 dark:border-gray-500'}
+                  ${selectedOption === option ? 'border-gravity-blue bg-gravity-blue' : 'border-gravity-text-sub-light dark:border-gravity-text-sub-dark'}
                 `}>
                   {selectedOption === option && <div className="w-2 h-2 bg-white rounded-full" />}
                 </div>
