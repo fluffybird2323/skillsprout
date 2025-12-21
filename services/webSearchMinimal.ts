@@ -23,9 +23,6 @@ export interface SearchContext {
  */
 export async function searchDuckDuckGo(query: string, maxResults: number = 3): Promise<SearchResult[]> {
   try {
-    if (typeof window !== 'undefined') {
-      return [];
-    }
     // Use DuckDuckGo's instant answer API for lightweight search
     const searchQuery = encodeURIComponent(query);
     const response = await fetch(`https://api.duckduckgo.com/?q=${searchQuery}&format=json&no_html=1&skip_disambig=1`);

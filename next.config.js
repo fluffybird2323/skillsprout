@@ -7,6 +7,10 @@ const nextConfig = {
   // Optimize production builds
   reactStrictMode: true,
 
+  experimental: {
+    allowedDevOrigins: ['168.138.42.133', 'localhost:3000'],
+  },
+
   // Configure compression
   compress: true,
 

@@ -489,92 +489,39 @@ export const useStore = create<GameState>()(
 
             const parsed = JSON.parse(storedValue);
             
-            if (parsed.state) {
-              if (parsed.state.completedLessons && typeof parsed.state.completedLessons === 'object') {
-                parsed.state.completedLessons = new Map(Object.entries(parsed.state.completedLessons));
+            // Deserialize completedLessons Map
+            if (parsed.state && parsed.state.completedLessons && typeof parsed.state.completedLessons === 'object') {
+              parsed.state.completedLessons = new Map(Object.entries(parsed.state.completedLessons));
+            }
+            
+            // Validate the stored state
+            if (parsed.state && parsed.state.courses && Array.isArray(parsed.state.courses)) {
+              const validatedCourses = [];
+              const errors = [];
+              
+              for (const course of parsed.state.courses) {
+                const validation = storageValidator.validateCourse(course);
+                if (validation.isValid) {
+                  validatedCourses.push(validation.data || course);
+                } else {
+                  console.warn(`Course validation failed: ${validation.errors.join(', ')}`);
+                  errors.push({ courseId: course.id, errors: validation.errors });
+                  
+                  // Attempt recovery
+                  const recoveryResult = await storageRecovery.recoverCourse(course, course.id);
+                  if (recoveryResult.success && recoveryResult.recoveredData) {
+                    validatedCourses.push(recoveryResult.recoveredData);
+                    console.log(`Successfully recovered course: ${course.id}`);
+                  }
+                }
               }
               
-              if (parsed.state.courses && Array.isArray(parsed.state.courses)) {
-                const validatedCourses: Course[] = [];
-                const errors: { courseId: string; errors: string[] }[] = [];
-                
-                for (const course of parsed.state.courses) {
-                  const validation = storageValidator.validateCourse(course);
-                  if (validation.isValid) {
-                    validatedCourses.push(validation.data || course);
-                  } else {
-                    console.warn(`Course validation failed: ${validation.errors.join(', ')}`);
-                    errors.push({ courseId: course.id, errors: validation.errors });
-                    
-                    const recoveryResult = await storageRecovery.recoverCourse(course, course.id);
-                    if (recoveryResult.success && recoveryResult.recoveredData) {
-                      validatedCourses.push(recoveryResult.recoveredData);
-                      console.log(`Successfully recovered course: ${course.id}`);
-                    }
-                  }
-                }
-                
-                if (errors.length > 0) {
-                  console.warn(`Storage validation found ${errors.length} corrupted courses, recovered ${validatedCourses.length}`);
-                }
-                
-                const activeCourseId: string | null = parsed.state.activeCourseId || null;
-                
-                parsed.state.courses = validatedCourses.map((course) => {
-                  if (!course.units || course.units.length === 0) return course;
-                  
-                  const units = [...course.units];
-                  
-                  const firstIncompleteUnitIndex = units.findIndex((unit) =>
-                    unit.chapters && unit.chapters.some((ch) => ch.status !== 'completed')
-                  );
-                  
-                  if (firstIncompleteUnitIndex === -1) {
-                    return course;
-                  }
-                  
-                  const updatedUnits = units.map((unit, unitIndex) => {
-                    if (!unit.chapters || unit.chapters.length === 0) return unit;
-                    
-                    if (unitIndex < firstIncompleteUnitIndex) {
-                      return unit;
-                    }
-                    
-                    if (unitIndex > firstIncompleteUnitIndex) {
-                      const lockedChapters = unit.chapters.map((ch) => ({
-                        ...ch,
-                        status: 'locked' as const,
-                      }));
-                      return { ...unit, chapters: lockedChapters };
-                    }
-                    
-                    const chapters = unit.chapters;
-                    const lastCompletedIndex = chapters.reduce((lastIndex, ch, index) => {
-                      return ch.status === 'completed' ? index : lastIndex;
-                    }, -1);
-                    
-                    const targetActiveIndex =
-                      lastCompletedIndex === -1 ? 0 : Math.min(lastCompletedIndex + 1, chapters.length - 1);
-                    
-                    const repairedChapters = chapters.map((ch, index) => {
-                      if (index < targetActiveIndex) {
-                        if (ch.status === 'completed') return ch;
-                        return { ...ch, status: 'completed' as const };
-                      }
-                      if (index === targetActiveIndex) {
-                        if (ch.status === 'completed') return ch;
-                        return { ...ch, status: 'active' as const };
-                      }
-                      if (ch.status === 'locked') return ch;
-                      return { ...ch, status: 'locked' as const };
-                    });
-                    
-                    return { ...unit, chapters: repairedChapters };
-                  });
-                  
-                  return { ...course, units: updatedUnits };
-                });
+              if (errors.length > 0) {
+                console.warn(`Storage validation found ${errors.length} corrupted courses, recovered ${validatedCourses.length}`);
               }
+              
+              // Replace courses with validated ones
+              parsed.state.courses = validatedCourses;
             }
             
             return parsed;
