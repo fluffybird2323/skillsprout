@@ -892,25 +892,30 @@ async function handleGenerateUnitReferences(topic: string, unitTitle: string, ch
 
   console.log(`Generating references for "${topic}" (${category})`);
 
-  // Use DuckDuckGo directly for resources (bypassing AI extraction)
   try {
-    const query = `${topic} ${unitTitle} educational resources`;
-    const results = await searchDuckDuckGo(query);
+    // Build a slightly more generic query so we get stable results
+    const query = `${topic} ${unitTitle} tutorial guide course learning resources`;
+
+    // Use the same multi-source search pipeline as RAG (Wikipedia + DuckDuckGo, plus paid APIs if configured)
+    const results = await performWebSearch(query);
     
     if (results.length > 0) {
-       return {
-         materials: results.slice(0, 5).map((r, idx) => ({
-            id: `ref-${Date.now()}-${idx}`,
-            title: r.title,
-            url: r.url,
-            type: categorizeResource(r.url, r.title),
-            source: r.source,
-            description: r.snippet,
-            validatedAt: Date.now(),
-            isValid: true
-         })),
-         shouldShowReferences: true
-       };
+      const timestamp = Date.now();
+
+      return {
+        materials: results.slice(0, 5).map((r, idx) => ({
+          id: `ref-${timestamp}-${idx}`,
+          title: r.title,
+          url: r.url,
+          type: categorizeResource(r.url, r.title),
+          source: r.source,
+          description: r.snippet,
+          validatedAt: timestamp,
+          isValid: true,
+        })),
+        shouldShowReferences: true,
+        generatedAt: timestamp,
+      };
     }
   } catch (e) {
     console.warn('Resource search failed:', e);
@@ -919,6 +924,7 @@ async function handleGenerateUnitReferences(topic: string, unitTitle: string, ch
   return {
     materials: [],
     shouldShowReferences: false,
+    generatedAt: Date.now(),
   };
 }
 

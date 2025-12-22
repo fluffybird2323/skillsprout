@@ -170,18 +170,22 @@ export async function generateUnitReferences(topic: string, unitTitle: string, c
     const data = await withRetry(() => apiCall('generateUnitReferences', { topic, unitTitle, chapterTitles }));
 
     const materials: ReferenceMaterial[] = (data.materials || []).map((m: any, idx: number) => ({
-      id: `ref-${Date.now()}-${idx}`,
+      id: m.id || `ref-${Date.now()}-${idx}`,
       title: m.title,
       url: m.url,
       type: m.type || 'article',
       source: m.source,
       description: m.description,
+      validatedAt: m.validatedAt,
+      isValid: m.isValid,
+      category: m.category,
     }));
 
     return {
-      unitId: '', // Set by caller
+      unitId: '',
       materials,
-      generatedAt: Date.now(),
+      generatedAt: data.generatedAt || Date.now(),
+      shouldShowReferences: data.shouldShowReferences,
     };
   } catch (e) {
     console.warn("Reference generation failed", e);
@@ -189,6 +193,7 @@ export async function generateUnitReferences(topic: string, unitTitle: string, c
       unitId: '',
       materials: [],
       generatedAt: Date.now(),
+      shouldShowReferences: false,
     };
   }
 }
