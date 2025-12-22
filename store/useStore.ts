@@ -64,6 +64,7 @@ interface GameState {
   // Mechanics
   loseHeart: () => void;
   resetHearts: () => void;
+  validateCourseProgress: () => void;
 }
 
 // Helper function to validate lesson status transitions
@@ -423,6 +424,63 @@ export const useStore = create<GameState>()(
       }),
 
       resetHearts: () => set({ hearts: 5 }),
+
+      validateCourseProgress: () => set((state) => {
+        if (!state.activeCourseId) return state;
+
+        const newCourses = state.courses.map(course => {
+          if (course.id !== state.activeCourseId) return course;
+
+          let courseChanged = false;
+          const newUnits = [...course.units];
+
+          // Iterate units
+          for (let i = 0; i < newUnits.length; i++) {
+            const unit = newUnits[i];
+            const newChapters = [...unit.chapters];
+            let unitChanged = false;
+
+            // Check chapter continuity within unit
+            for (let j = 0; j < newChapters.length - 1; j++) {
+              if (newChapters[j].status === 'completed' && newChapters[j+1].status === 'locked') {
+                newChapters[j+1] = { ...newChapters[j+1], status: 'active' };
+                unitChanged = true;
+                courseChanged = true;
+                console.log(`Auto-unlocking chapter ${newChapters[j+1].title}`);
+              }
+            }
+
+            // Update unit if changed
+            if (unitChanged) {
+              newUnits[i] = { ...unit, chapters: newChapters };
+            }
+
+            // Check unit continuity
+            // If this unit is fully complete (all chapters completed)
+            const updatedUnit = newUnits[i]; // Use updated unit
+            const isUnitComplete = updatedUnit.chapters.every(c => c.status === 'completed');
+            
+            if (isUnitComplete && i < newUnits.length - 1) {
+              const nextUnit = newUnits[i+1];
+              if (nextUnit.chapters.length > 0 && nextUnit.chapters[0].status === 'locked') {
+                // Unlock first chapter of next unit
+                const nextUnitChapters = [...nextUnit.chapters];
+                nextUnitChapters[0] = { ...nextUnitChapters[0], status: 'active' };
+                newUnits[i+1] = { ...nextUnit, chapters: nextUnitChapters };
+                courseChanged = true;
+                console.log(`Auto-unlocking unit ${nextUnit.title}`);
+              }
+            }
+          }
+
+          if (courseChanged) {
+            return { ...course, units: newUnits };
+          }
+          return course;
+        });
+
+        return { courses: newCourses };
+      }),
 
       // Completed Lessons Management
       getCompletedLesson: (chapterId: string) => {

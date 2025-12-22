@@ -41,6 +41,7 @@ export const Roadmap: React.FC = () => {
 
   // Cleanup on unmount
   useEffect(() => {
+    store.validateCourseProgress();
     return () => {
       if (loadingAbortRef.current) {
         loadingAbortRef.current.abort();
@@ -307,6 +308,9 @@ export const Roadmap: React.FC = () => {
     try {
         const newUnit = await generateUnit(activeCourse.topic, activeCourse.units.length, focus);
         store.appendUnit(newUnit);
+
+        // Validate progress to ensure continuity if previous unit was complete
+        store.validateCourseProgress();
 
         // Clear prefetched suggestions since the course structure changed
         store.setPrefetchedSuggestions(null);
@@ -588,10 +592,22 @@ export const Roadmap: React.FC = () => {
                     ) : (
                       <button 
                         onClick={openPathSelector}
-                        className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 px-8 py-4 rounded-full shadow-2xl flex items-center gap-4 transition-all transform hover:-translate-y-1"
+                        disabled={loadingSuggestions}
+                        className={`
+                          bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 
+                          text-gray-900 dark:text-gray-100 px-8 py-4 rounded-full shadow-2xl 
+                          flex items-center gap-4 transition-all transform 
+                          ${loadingSuggestions ? 'opacity-70 cursor-wait' : 'hover:bg-gray-50 dark:hover:bg-gray-700 hover:-translate-y-1'}
+                        `}
                       >
-                          <Cloud className="w-5 h-5 text-blue-600" />
-                          <span className="font-bold text-sm uppercase tracking-wider">Extend Path</span>
+                          {loadingSuggestions ? (
+                            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                          ) : (
+                            <Cloud className="w-5 h-5 text-blue-600" />
+                          )}
+                          <span className="font-bold text-sm uppercase tracking-wider">
+                            {loadingSuggestions ? 'Thinking...' : 'Extend Path'}
+                          </span>
                       </button>
                     )}
                 </div>
