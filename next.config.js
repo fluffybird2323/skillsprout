@@ -8,7 +8,7 @@ const nextConfig = {
   reactStrictMode: true,
 
   experimental: {
-    allowedDevOrigins: ['168.138.42.133', 'localhost:3000'],
+    allowedDevOrigins: ['168.138.42.133', '168.138.42.133:3000', 'localhost:3000',skillsprout.artiestudio.org],
   },
 
   // Configure compression
