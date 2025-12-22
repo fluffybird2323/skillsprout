@@ -34,6 +34,10 @@ export const Lesson: React.FC = () => {
   const store = useStore();
   const { currentLesson, hearts, setAppState, completeLesson, processAnswer } = store;
 
+  const activeCourse = store.courses.find(c => c.id === store.activeCourseId);
+  const currentUnit = activeCourse?.units.find(u => u.chapters.some(c => c.id === currentLesson?.chapterId));
+  const themeColor = currentUnit?.color || '#3B82F6';
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [textAnswer, setTextAnswer] = useState('');
@@ -438,15 +442,26 @@ export const Lesson: React.FC = () => {
                 className={`
                   p-6 border-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center justify-between group shadow-sm
                   ${selectedOption === option 
-                    ? 'bg-blue-50 border-blue-500 text-blue-600' 
+                    ? '' 
                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100'}
                   ${status !== 'idle' && 'cursor-default'}
                 `}
+                style={selectedOption === option ? {
+                  borderColor: themeColor,
+                  color: themeColor,
+                  backgroundColor: `${themeColor}10`
+                } : undefined}
               >
                 <span className="font-semibold text-lg">{option}</span>
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ml-4
-                  ${selectedOption === option ? 'border-blue-500 bg-blue-500' : 'border-gray-400 dark:border-gray-500'}
-                `}>
+                <div 
+                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ml-4
+                    ${selectedOption !== option ? 'border-gray-400 dark:border-gray-500' : ''}
+                  `}
+                  style={selectedOption === option ? {
+                    borderColor: themeColor,
+                    backgroundColor: themeColor
+                  } : undefined}
+                >
                   {selectedOption === option && <div className="w-2 h-2 bg-white rounded-full" />}
                 </div>
               </div>

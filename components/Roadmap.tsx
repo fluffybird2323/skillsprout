@@ -36,40 +36,8 @@ export const Roadmap: React.FC = () => {
   ).length;
 
   // Check if user is on the last lesson of the course (for prefetching)
-  const isOnLastLesson = useCallback(() => {
-    if (!activeCourse) return false;
-    const lastUnit = activeCourse.units[activeCourse.units.length - 1];
-    if (!lastUnit) return false;
-    const completedInLastUnit = lastUnit.chapters.filter(ch => ch.status === 'completed').length;
-    const totalInLastUnit = lastUnit.chapters.length;
-    // Consider "near last" if only 1 lesson remains
-    return completedInLastUnit >= totalInLastUnit - 1;
-  }, [activeCourse]);
+  // Prefetching removed as per request to only suggest extensions on demand
 
-  // Prefetch path suggestions when user reaches the last lesson
-  useEffect(() => {
-    const prefetchSuggestions = async () => {
-      if (!activeCourse || !isOnLastLesson()) return;
-
-      // Check if already prefetched
-      const cached = await lessonCache.getCachedPrefetch(activeCourse.id);
-      if (cached) {
-        store.setPrefetchedSuggestions(cached);
-        return;
-      }
-
-      try {
-        const titles = activeCourse.units.map(u => u.title);
-        const suggs = await generatePathSuggestions(activeCourse.topic, titles);
-        await lessonCache.cachePrefetch(activeCourse.id, suggs);
-        store.setPrefetchedSuggestions(suggs);
-      } catch (error) {
-        console.warn('Failed to prefetch suggestions:', error);
-      }
-    };
-
-    prefetchSuggestions();
-  }, [activeCourse, isOnLastLesson]);
 
   // Cleanup on unmount
   useEffect(() => {
