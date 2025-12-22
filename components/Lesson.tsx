@@ -6,7 +6,6 @@ import { Button } from './ui/Button';
 import { AppState } from '../types';
 import { storageValidator } from '../utils/storageValidation';
 import { storageRecovery } from '../services/storageRecovery';
-import { ResourceStage } from './interactive/ResourceStage';
 import { InteractiveStage } from './interactive/InteractiveStage';
 
 // Number of consecutive wrong answers before showing reference tip
@@ -318,8 +317,6 @@ export const Lesson: React.FC = () => {
   const startActualLesson = () => {
     if (currentLesson.type === 'interactive' && currentLesson.interactiveConfig) {
        setStage('interactive');
-    } else if (currentLesson.type === 'resource' && currentLesson.resourceConfig) {
-       setStage('resource');
     } else {
        setStage('quiz');
     }
@@ -341,9 +338,6 @@ export const Lesson: React.FC = () => {
      );
   }
 
-  if (stage === 'resource' && currentLesson.resourceConfig) {
-     return <ResourceStage key={currentLesson.chapterId} config={currentLesson.resourceConfig} onComplete={() => setStage('quiz')} />;
-  }
 
   if (stage === 'interactive' && currentLesson.interactiveConfig) {
      return (
@@ -442,25 +436,16 @@ export const Lesson: React.FC = () => {
                 className={`
                   p-6 border-2 rounded-2xl cursor-pointer transition-all duration-200 flex items-center justify-between group shadow-sm
                   ${selectedOption === option 
-                    ? '' 
+                    ? 'bg-gravity-blue/5 border-gravity-blue text-gravity-blue' 
                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100'}
                   ${status !== 'idle' && 'cursor-default'}
                 `}
-                style={selectedOption === option ? {
-                  borderColor: themeColor,
-                  color: themeColor,
-                  backgroundColor: `${themeColor}10`
-                } : undefined}
               >
                 <span className="font-semibold text-lg">{option}</span>
                 <div 
                   className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ml-4
-                    ${selectedOption !== option ? 'border-gray-400 dark:border-gray-500' : ''}
+                    ${selectedOption === option ? 'border-gravity-blue bg-gravity-blue' : 'border-gray-400 dark:border-gray-500'}
                   `}
-                  style={selectedOption === option ? {
-                    borderColor: themeColor,
-                    backgroundColor: themeColor
-                  } : undefined}
                 >
                   {selectedOption === option && <div className="w-2 h-2 bg-white rounded-full" />}
                 </div>

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
 import { generateWithGroq } from '../../../services/groqClient';
 import { cleanAndParseJSON } from '../../../utils/aiHelpers';
 import { CourseDepth } from '../../../types';
@@ -23,14 +22,6 @@ import {
   estimateTokens,
   type ModelCallPurpose,
 } from '../../../services/modelManager';
-
-// Initialize Google Gemini AI (fallback only)
-const genAI = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || '',
-});
-
-// Fallback Gemini model when Groq fails
-const GEMINI_FALLBACK_MODEL = 'gemini-2.0-flash-exp';
 
 // Track model failures to avoid repeatedly trying broken models
 const modelFailures = new Map<string, number>();
@@ -56,17 +47,11 @@ setInterval(() => {
   }
 }, RATE_LIMIT_WINDOW);
 
-// Model selection: Groq (primary) or Gemini (fallback)
-type ModelProvider = 'groq' | 'gemini';
+// Model selection: Groq (only)
+type ModelProvider = 'groq';
 
 function getModelProvider(retryCount: number = 0): ModelProvider {
-  // Use Groq on first try
-  if (retryCount === 0) {
-    return 'groq';
-  }
-
-  // Fallback to Gemini on retry
-  return 'gemini';
+  return 'groq';
 }
 
 // Record model failure
@@ -131,16 +116,11 @@ export async function POST(req: NextRequest) {
       case 'generateLessonOptimized':
         // Route to appropriate handler based on lesson type
         const lessonType = payload.lessonType || 'quiz';
-        if (lessonType === 'resource') {
-          result = await handleGenerateResourceLesson(payload.topic, payload.chapterTitle);
-        } else if (lessonType === 'interactive') {
+        if (lessonType === 'interactive') {
           result = await handleGenerateInteractiveLesson(payload.topic, payload.chapterTitle);
         } else {
           result = await handleGenerateLessonContent(payload.topic, payload.chapterTitle);
         }
-        break;
-      case 'generateResourceLesson':
-        result = await handleGenerateResourceLesson(payload.topic, payload.chapterTitle);
         break;
       case 'generateInteractiveLesson':
         result = await handleGenerateInteractiveLesson(payload.topic, payload.chapterTitle);
@@ -452,9 +432,6 @@ async function generateWithAI(
   purpose?: ModelCallPurpose,
   metadata?: Record<string, any>
 ): Promise<any> {
-  // Determine which provider to use
-  const provider = getModelProvider(retryCount);
-
   // Track this model call
   if (purpose && retryCount === 0) {
     const fullPrompt = `${systemInstruction}\n\n${prompt}`;
@@ -469,65 +446,26 @@ async function generateWithAI(
   }
 
   try {
-    let text: string;
+    // Use Groq (only)
+    console.log(`[Model] Groq (random) | Purpose: ${purpose || 'untracked'}`);
+    const text = await generateWithGroq(prompt, systemInstruction, purpose);
 
-    if (provider === 'groq') {
-      // Use Groq (primary)
-      console.log(`[Model] Groq (random) | Purpose: ${purpose || 'untracked'}`);
-      text = await generateWithGroq(prompt, systemInstruction, purpose);
-    } else {
-      // Use Gemini (fallback)
-      console.log(`[Model] Gemini ${GEMINI_FALLBACK_MODEL} | Purpose: ${purpose || 'untracked'}`);
-
-      const result = await Promise.race([
-        genAI.models.generateContent({
-          model: GEMINI_FALLBACK_MODEL,
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: `${systemInstruction}\n\n${prompt}` }]
-            }
-          ],
-          config: {
-            temperature: 0.7,
-            maxOutputTokens: 8192,
-          }
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Request timeout after 30s')), 30000)
-        )
-      ]) as any;
-
-      // Extract text from Gemini response
-      if (result.candidates && result.candidates.length > 0) {
-        const candidate = result.candidates[0];
-        if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-          text = candidate.content.parts[0].text || '{}';
-        } else {
-          text = '{}';
-        }
-      } else {
-        text = '{}';
-      }
-    }
-
-    console.log(`[Model] Response: ${text.length} chars | Provider: ${provider} | Purpose: ${purpose || 'untracked'}`);
+    console.log(`[Model] Response: ${text.length} chars | Provider: groq | Purpose: ${purpose || 'untracked'}`);
 
     return cleanAndParseJSON(text);
   } catch (error: any) {
-    console.error(`[Model] ${provider} error:`, error.message, error.code);
+    console.error(`[Model] groq error:`, error.message, error.code);
 
     // Record the failure
-    recordModelFailure(provider);
+    recordModelFailure('groq');
 
-    // If this was Groq and it failed, retry with Gemini
-    if (retryCount === 0 && provider === 'groq') {
-      console.warn(`[Model] Groq failed, retrying with Gemini fallback`);
-      return generateWithAI(prompt, systemInstruction, 1, purpose, metadata);
+    // Retry once with Groq if failed
+    if (retryCount === 0) {
+       console.warn(`[Model] Groq failed, retrying...`);
+       return generateWithAI(prompt, systemInstruction, 1, purpose, metadata);
     }
 
-    // If fallback also failed, throw the error
-    console.error(`[Model] Generation failed with ${provider}:`, error);
+    console.error(`[Model] Generation failed:`, error);
     throw new Error(`AI generation failed: ${error.message || 'Unknown error'}`);
   }
 }
@@ -625,21 +563,38 @@ function getCategoryGuidance(category: TopicCategory): string {
 
 async function handleGeneratePathSuggestions(topic: string, history: string[]) {
   const category = detectTopicCategory(topic);
+  
+  // Ground with DuckDuckGo to prevent hallucinations
+  let context = "";
+  try {
+    const searchResults = await searchDuckDuckGo(topic);
+    if (searchResults.length > 0) {
+      context = `
+REAL-WORLD CONTEXT (Use this to ground your suggestions):
+${searchResults.map(r => `- ${r.title}: ${r.snippet}`).join('\n')}
+`;
+    }
+  } catch (e) {
+    console.warn("Failed to ground path suggestions:", e);
+  }
 
   const prompt = `The user is learning "${topic}" (Category: ${category}).
 They completed: ${history.join(', ')}.
+
+${context}
 
 Suggest 3 distinct, exciting next directions. These should be:
 - Specific and actionable (not generic)
 - Building on what they've learned
 - Offering different paths (depth, breadth, application)
+- Strictly relevant to the EDUCATIONAL topic, not corporate entities (e.g. for "Alphabet", focus on letters/language, not Google/Alphabet Inc.)
 
 Return ONLY valid JSON:
 {
   "suggestions": ["Direction 1", "Direction 2", "Direction 3"]
 }`;
 
-  return generateWithAI(prompt, "You are a helpful AI assistant.", 0, 'path-suggestions', { topic });
+  return generateWithAI(prompt, "You are a helpful AI assistant. Ground your response in reality.", 0, 'path-suggestions', { topic });
 }
 
 async function handleGenerateUnit(topic: string, existingUnitCount: number, focus?: string) {
@@ -717,6 +672,8 @@ Requirements:
 6. Vary question formats - some direct, some scenario-based, some application-based
 7. Explanations should teach, not just confirm
 
+IMPORTANT: Focus primarily on the specific "${topic}" and "${chapterTitle}". The Category (${category}) is just a guide - if it seems unrelated, ignore it and follow the Topic.
+
 CRITICAL FORMATTING RULES (MUST FOLLOW EXACTLY):
 - multiple-choice:
   * Create EXACTLY 4 options
@@ -762,90 +719,9 @@ EXAMPLE (multiple-choice):
 
   return generateWithAI(
     prompt,
-    `You are an expert educational content creator specializing in ${category}. Create engaging, accurate lessons. Output strictly valid JSON.`,
+    `You are an expert educational content creator. Create engaging, accurate lessons for the topic "${topic}". Output strictly valid JSON.`,
     0,
     'lesson-generation-quiz',
-    { topic, chapterTitle }
-  );
-}
-
-async function handleGenerateResourceLesson(topic: string, chapterTitle: string) {
-  const category = detectTopicCategory(topic, chapterTitle);
-  const template = getLessonTemplate(topic, chapterTitle);
-
-  // Get real resources through RAG
-  let ragContext: RAGContext | null = null;
-  try {
-    ragContext = await buildRAGContext(topic, chapterTitle);
-  } catch (e) {
-    console.warn('RAG context failed:', e);
-  }
-
-  // Select best resource from RAG results or generate one
-  let resourceInfo = '';
-  if (ragContext && ragContext.resources.length > 0) {
-    const bestResource = ragContext.resources.find(r =>
-      template.resourceTypes.includes(r.type)
-    ) || ragContext.resources[0];
-
-    resourceInfo = `
-USE THIS REAL RESOURCE:
-- URL: ${bestResource.url}
-- Title: ${bestResource.title}
-- Source: ${bestResource.source}
-- Type: ${bestResource.type}
-- Description: ${bestResource.description}
-
-Additional context from research:
-${ragContext.summary}
-${ragContext.facts.map(f => `- ${f}`).join('\n')}
-`;
-  }
-
-  const intro = generateIntroVariation(category, chapterTitle, 'resource', ragContext?.facts);
-
-  const prompt = `Create a resource-based lesson for "${chapterTitle}" (Topic: ${topic}, Category: ${category}).
-${resourceInfo}
-
-Requirements:
-1. ${ragContext ? 'Use the provided real resource' : 'Find/generate a high-quality educational resource (Wikipedia, official docs, reputable sites)'}
-2. Write a compelling summary that makes the learner want to explore
-3. Create 3 multiple-choice questions based on the resource content
-4. Questions should test understanding, not just recall
-5. Include practical application questions
-
-Preferred resource types for this category: ${template.resourceTypes.join(', ')}
-
-CRITICAL FORMATTING RULES (MUST FOLLOW EXACTLY):
-- The FIRST option in the "options" array MUST BE the correct answer
-- Do NOT use letter prefixes like A), B), C), D) - just plain text
-- The "correctAnswer" field should contain the EXACT TEXT of the first option
-- Frontend will shuffle options randomly for display
-
-Return ONLY valid JSON (no markdown, no extra text):
-{
-  "resource": {
-    "url": "https://...",
-    "title": "Resource Title",
-    "summary": "Compelling 2-3 sentence summary",
-    "sourceName": "Source Name"
-  },
-  "questions": [
-    {
-      "type": "multiple-choice",
-      "question": "Question about the content",
-      "options": ["Correct answer FIRST", "Wrong answer 2", "Wrong answer 3", "Wrong answer 4"],
-      "correctAnswer": "Correct answer FIRST",
-      "explanation": "Why this is correct"
-    }
-  ]
-}`;
-
-  return generateWithAI(
-    prompt,
-    `You are a research assistant who curates excellent educational resources. Output strictly valid JSON.`,
-    0,
-    'lesson-generation-resource',
     { topic, chapterTitle }
   );
 }
@@ -888,6 +764,8 @@ Requirements:
 2. Create a realistic, engaging scenario
 3. Include 2-3 follow-up multiple-choice questions
 4. Make the activity educational, not just fun
+
+IMPORTANT: Focus primarily on the specific "${topic}" and "${chapterTitle}". The Category (${category}) is just a guide - if it seems unrelated, ignore it and follow the Topic.
 
 ${widgetType === 'simulation' ? `
 SIMULATION REQUIREMENTS:
@@ -1012,81 +890,35 @@ function getWidgetInstructions(widgetType: string, category: TopicCategory): str
 async function handleGenerateUnitReferences(topic: string, unitTitle: string, chapterTitles: string[]) {
   const category = detectTopicCategory(topic, unitTitle);
 
-  // Import the functions we need
-  const { shouldHaveReferences, getSourcePriority } = await import('../../../services/academicSources');
-  const { batchValidateURLs } = await import('../../../services/urlValidator');
-
-  // Check if this topic should have references at all
-  if (!shouldHaveReferences(topic, category)) {
-    console.log(`Topic "${topic}" is subjective/personal - skipping references`);
-    return {
-      materials: [],
-      shouldShowReferences: false,
-    };
-  }
-
   console.log(`Generating references for "${topic}" (${category})`);
 
-  // Use RAG to find real resources
-  let ragContext: RAGContext | null = null;
+  // Use DuckDuckGo directly for resources (bypassing AI extraction)
   try {
-    ragContext = await buildRAGContext(topic, unitTitle);
-  } catch (e) {
-    console.warn('RAG context failed for references:', e);
-  }
-
-  // If we have real search results, validate and rank them
-  if (ragContext && ragContext.resources.length > 0) {
-    console.log(`Found ${ragContext.resources.length} potential resources`);
-
-    // Validate URLs
-    const urlsToValidate = ragContext.resources.map(r => r.url);
-    const validationResults = await batchValidateURLs(urlsToValidate);
-
-    // Filter and score resources
-    const scoredResources = ragContext.resources
-      .map((resource, index) => {
-        const validation = validationResults[index];
-        const priorityScore = getSourcePriority(resource.url, category);
-        const relevanceScore = chapterTitles.some(title =>
-          resource.title.toLowerCase().includes(title.toLowerCase())
-        ) ? 2 : 0;
-
-        return {
-          ...resource,
-          validatedAt: validation.checkedAt,
-          isValid: validation.isValid,
-          score: priorityScore + relevanceScore + (validation.isValid ? 5 : 0),
-        };
-      })
-      .filter(r => r.isValid) // Only keep valid URLs
-      .sort((a, b) => b.score - a.score) // Sort by score
-      .slice(0, 5); // Take top 5
-
-    console.log(`Validated: ${scoredResources.length} valid resources`);
-
-    if (scoredResources.length > 0) {
-      return {
-        materials: scoredResources.map((r, idx) => ({
-          id: `ref-${Date.now()}-${idx}`,
-          title: r.title,
-          url: r.url,
-          type: r.type,
-          source: r.source,
-          description: r.description || `Resource about ${unitTitle} from ${r.source}`,
-          validatedAt: r.validatedAt,
-          isValid: r.isValid,
-        })),
-        shouldShowReferences: true,
-      };
+    const query = `${topic} ${unitTitle} educational resources`;
+    const results = await searchDuckDuckGo(query);
+    
+    if (results.length > 0) {
+       return {
+         materials: results.slice(0, 5).map((r, idx) => ({
+            id: `ref-${Date.now()}-${idx}`,
+            title: r.title,
+            url: r.url,
+            type: categorizeResource(r.url, r.title),
+            source: r.source,
+            description: r.snippet,
+            validatedAt: Date.now(),
+            isValid: true
+         })),
+         shouldShowReferences: true
+       };
     }
+  } catch (e) {
+    console.warn('Resource search failed:', e);
   }
 
-  // No valid resources found - don't generate fake summaries
-  console.log(`No valid resources found for "${topic}"`);
   return {
     materials: [],
-    shouldShowReferences: true, // We tried but found nothing
+    shouldShowReferences: false,
   };
 }
 

@@ -5,7 +5,6 @@
  * - Random model selection for load distribution
  * - Model-specific parameters
  * - Intelligent token limits based on query complexity
- * - Fallback to Gemini on failure
  */
 
 import Groq from 'groq-sdk';

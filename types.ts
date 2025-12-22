@@ -32,21 +32,13 @@ export interface InteractiveWidget {
   strokeGuide?: string; // Description of what to draw
 }
 
-export interface ResourceContent {
-  url: string;
-  title: string;
-  summary: string;
-  sourceName: string;
-}
-
 export interface LessonContent {
   chapterId: string;
-  type: 'quiz' | 'interactive' | 'resource';
+  type: 'quiz' | 'interactive';
   intro: string;
   questions: Question[];
   // Optional fields based on type
   interactiveConfig?: InteractiveWidget;
-  resourceConfig?: ResourceContent;
 }
 
 export interface Chapter {

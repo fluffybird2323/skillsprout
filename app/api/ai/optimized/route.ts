@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
 import { generateWithGroq, calculateMaxTokens } from '../../../../services/groqClient';
-
-// Initialize Gemini (fallback only)
-const genAI = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || '',
-});
 
 /**
  * Optimized lesson generation - single call handles everything
- * Uses Groq (primary) with Gemini fallback
+ * Uses Groq (primary)
  */
 export async function POST(request: NextRequest) {
   let lessonType = 'quiz';
@@ -27,7 +21,7 @@ export async function POST(request: NextRequest) {
     let text: string;
 
     try {
-      // Try Groq first (primary)
+      // Try Groq (primary)
       console.log('[Optimized] Using Groq for lesson generation');
       text = await generateWithGroq(
         prompt,
@@ -35,31 +29,8 @@ export async function POST(request: NextRequest) {
         `lesson-generation-${lessonType}` as any
       );
     } catch (groqError) {
-      // Fallback to Gemini
-      console.warn('[Optimized] Groq failed, using Gemini fallback');
-
-      const maxTokens = calculateMaxTokens(prompt, `lesson-generation-${lessonType}` as any);
-
-      const result = await genAI.models.generateContent({
-        model: 'gemini-2.0-flash-exp',
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }]
-          }
-        ],
-        config: {
-          temperature: 0.7,
-          maxOutputTokens: maxTokens,
-        }
-      });
-
-      // Extract text from Gemini response
-      if (result.candidates && result.candidates.length > 0) {
-        text = result.candidates[0]?.content?.parts?.[0]?.text || '{}';
-      } else {
-        throw new Error('No response from Gemini');
-      }
+       console.error('[Optimized] Groq failed:', groqError);
+       throw groqError;
     }
 
     // Parse and validate response
@@ -97,6 +68,8 @@ ${contextSection}
 Generate exactly ${questionCount} questions with these types: multiple-choice, fill-blank, true-false.
 Make questions practical and engaging. Include clear explanations.
 
+IMPORTANT: Focus primarily on the specific "${topic}" and "${chapterTitle}". The Category (${category}) is just a guide - if it seems unrelated, ignore it and follow the Topic.
+
 Return simple JSON:
 {
   "intro": "Brief engaging introduction",
@@ -119,6 +92,8 @@ ${contextSection}
 Include a basic interactive element (simulation or activity) and 2-3 questions.
 Keep it lightweight and fast to generate.
 
+IMPORTANT: Focus primarily on the specific "${topic}" and "${chapterTitle}". The Category (${category}) is just a guide - if it seems unrelated, ignore it and follow the Topic.
+
 Return simple JSON:
 {
   "intro": "Brief engaging introduction",
@@ -131,34 +106,6 @@ Return simple JSON:
     {
       "type": "multiple-choice",
       "question": "Question about the activity",
-      "options": ["A", "B", "C", "D"],
-      "correctAnswer": "A",
-      "explanation": "Explanation"
-    }
-  ]
-}`;
-  }
-
-  if (lessonType === 'resource') {
-    return `Create a resource-based lesson for "${chapterTitle}" (Topic: ${topic}, Category: ${category}).
-${contextSection}
-
-Provide a high-quality educational resource (Wikipedia, documentation, etc.) and 2-3 questions about it.
-Keep resource selection simple and reliable.
-
-Return simple JSON:
-{
-  "intro": "Brief engaging introduction",
-  "resource": {
-    "url": "https://en.wikipedia.org/wiki/Topic",
-    "title": "Resource Title",
-    "summary": "2-3 sentence summary",
-    "sourceName": "Wikipedia"
-  },
-  "questions": [
-    {
-      "type": "multiple-choice",
-      "question": "Question about the resource",
       "options": ["A", "B", "C", "D"],
       "correctAnswer": "A",
       "explanation": "Explanation"
@@ -229,27 +176,6 @@ function getFallbackResponse(lessonType: string): any {
           options: ["A", "B", "C", "D"],
           correctAnswer: "A",
           explanation: "This demonstrates the key concept."
-        }
-      ]
-    };
-  }
-
-  if (lessonType === 'resource') {
-    return {
-      intro: "Explore this educational resource.",
-      resource: {
-        url: "https://en.wikipedia.org/wiki/Main_Page",
-        title: "Wikipedia",
-        summary: "A comprehensive encyclopedia with articles on many topics.",
-        sourceName: "Wikipedia"
-      },
-      questions: [
-        {
-          type: "multiple-choice",
-          question: "What type of resource is this?",
-          options: ["Encyclopedia", "Blog", "Forum", "Social Media"],
-          correctAnswer: "Encyclopedia",
-          explanation: "Wikipedia is a collaborative encyclopedia."
         }
       ]
     };

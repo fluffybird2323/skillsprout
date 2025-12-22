@@ -178,13 +178,13 @@ const CATEGORY_KEYWORDS: Record<TopicCategory, string[]> = {
   science: ['physics', 'chemistry', 'biology', 'astronomy', 'geology', 'ecology', 'genetics', 'neuroscience', 'quantum', 'thermodynamics', 'evolution', 'cells', 'atoms', 'molecules', 'energy', 'force', 'matter'],
   technology: ['programming', 'software', 'computer', 'coding', 'web', 'app', 'database', 'ai', 'machine learning', 'cybersecurity', 'cloud', 'devops', 'api', 'framework', 'algorithm', 'data structure'],
   mathematics: ['algebra', 'calculus', 'geometry', 'statistics', 'probability', 'trigonometry', 'linear', 'differential', 'integral', 'number theory', 'topology', 'discrete', 'equation', 'function', 'theorem'],
-  history: ['ancient', 'medieval', 'modern', 'war', 'civilization', 'empire', 'revolution', 'dynasty', 'colonialism', 'renaissance', 'reformation', 'industrial', 'historical', 'century', 'era'],
-  language: ['grammar', 'vocabulary', 'writing', 'speaking', 'reading', 'linguistics', 'phonetics', 'syntax', 'semantics', 'translation', 'japanese', 'spanish', 'french', 'german', 'mandarin', 'english', 'korean'],
-  arts: ['painting', 'sculpture', 'music', 'dance', 'theater', 'film', 'photography', 'design', 'architecture', 'drawing', 'composition', 'color theory', 'art history', 'creative'],
-  business: ['marketing', 'finance', 'accounting', 'management', 'entrepreneurship', 'economics', 'strategy', 'sales', 'investment', 'startup', 'leadership', 'negotiation', 'branding'],
+  history: ['ancient', 'medieval', 'modern', 'war', 'civilization', 'empire', 'revolution', 'dynasty', 'colonialism', 'renaissance', 'reformation', 'industrial', 'historical', 'century', 'era', 'archaeology'],
+  language: ['grammar', 'vocabulary', 'writing', 'speaking', 'reading', 'linguistics', 'phonetics', 'syntax', 'semantics', 'translation', 'japanese', 'spanish', 'french', 'german', 'mandarin', 'english', 'korean', 'communication'],
+  arts: ['painting', 'sculpture', 'music', 'dance', 'theater', 'film', 'photography', 'design', 'architecture', 'drawing', 'composition', 'color theory', 'art history', 'creative', 'performance', 'acting'],
+  business: ['marketing', 'finance', 'accounting', 'management', 'entrepreneurship', 'economics', 'strategy', 'sales', 'investment', 'startup', 'leadership', 'negotiation', 'branding', 'career'],
   health: ['medicine', 'nutrition', 'fitness', 'mental health', 'anatomy', 'physiology', 'pharmacology', 'disease', 'wellness', 'exercise', 'diet', 'healthcare', 'therapy'],
   'social-science': ['psychology', 'sociology', 'anthropology', 'political science', 'economics', 'geography', 'culture', 'society', 'behavior', 'cognition', 'social'],
-  'practical-skills': ['cooking', 'gardening', 'woodworking', 'sewing', 'repair', 'diy', 'crafts', 'automotive', 'home improvement', 'survival', 'first aid'],
+  'practical-skills': ['cooking', 'gardening', 'woodworking', 'sewing', 'repair', 'diy', 'crafts', 'automotive', 'home improvement', 'survival', 'first aid', 'how to', 'tutorial', 'guide', 'tips', 'technique', 'method', 'camera', 'video', 'editing'],
   general: [],
 };
 
@@ -202,7 +202,9 @@ export function detectTopicCategory(topic: string, chapterTitle?: string): Topic
 
     let score = 0;
     for (const keyword of keywords) {
-      if (searchText.includes(keyword)) {
+      // Use word boundary check to avoid false positives (e.g., 'era' in 'camera')
+      const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+      if (regex.test(searchText)) {
         score += keyword.length; // Longer matches score higher
       }
     }

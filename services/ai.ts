@@ -132,26 +132,6 @@ export async function generateLessonContent(topic: string, chapterTitle: string)
   };
 }
 
-export async function generateResourceLesson(topic: string, chapterTitle: string): Promise<LessonContent> {
-  try {
-    const data = await withRetry(() => apiCall('generateResourceLesson', { topic, chapterTitle }));
-    
-    return {
-      chapterId: '',
-      type: 'resource',
-      intro: "Let's explore the real world! Study this resource, then answer the questions.",
-      resourceConfig: data.resource,
-      questions: data.questions.map((q: any, idx: number) => ({
-        ...q,
-        id: `rq-${Date.now()}-${idx}`
-      }))
-    };
-  } catch (e) {
-    console.warn("Resource generation failed, falling back to standard lesson", e);
-    return generateLessonContent(topic, chapterTitle);
-  }
-}
-
 export async function generateInteractiveLesson(topic: string, chapterTitle: string): Promise<LessonContent> {
   try {
     const data = await withRetry(() => apiCall('generateInteractiveLesson', { topic, chapterTitle }));

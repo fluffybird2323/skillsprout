@@ -80,19 +80,19 @@ export const Roadmap: React.FC = () => {
     const hasStrongInteractive = template.interactiveWidgets.length >= 3;
     const hasStrongResources = template.resourceTypes.length >= 3;
 
-    let lessonType: 'quiz' | 'interactive' | 'resource';
+    let lessonType: 'quiz' | 'interactive';
     if (hasStrongInteractive && hasStrongResources) {
       // Balanced distribution for versatile topics
-      lessonType = rand < 0.5 ? 'quiz' : rand < 0.75 ? 'interactive' : 'resource';
+      lessonType = rand < 0.6 ? 'quiz' : 'interactive';
     } else if (hasStrongInteractive) {
       // More interactive for hands-on topics
-      lessonType = rand < 0.4 ? 'quiz' : rand < 0.8 ? 'interactive' : 'resource';
+      lessonType = rand < 0.5 ? 'quiz' : 'interactive';
     } else if (hasStrongResources) {
       // More resources for research-heavy topics
-      lessonType = rand < 0.4 ? 'quiz' : rand < 0.6 ? 'interactive' : 'resource';
+      lessonType = rand < 0.6 ? 'quiz' : 'interactive';
     } else {
       // Default distribution
-      lessonType = rand < 0.6 ? 'quiz' : rand < 0.8 ? 'interactive' : 'resource';
+      lessonType = rand < 0.7 ? 'quiz' : 'interactive';
     }
 
     try {
