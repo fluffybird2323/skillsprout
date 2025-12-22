@@ -13,6 +13,7 @@ export const PWAInstallPrompt: React.FC = () => {
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const promptIntervalMs = 24 * 60 * 60 * 1000;
 
   useEffect(() => {
     // Check if already installed
@@ -26,8 +27,11 @@ export const PWAInstallPrompt: React.FC = () => {
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(iOS);
 
-    // Check if already prompted or installed
-    const hasPrompted = localStorage.getItem('pwa-install-prompted');
+    const legacyPrompted = localStorage.getItem('pwa-install-prompted');
+    const promptedAtRaw = localStorage.getItem('pwa-install-prompted-at');
+    const lastPromptAt = promptedAtRaw ? parseInt(promptedAtRaw, 10) : 0;
+    const now = Date.now();
+    const shouldThrottle = !!lastPromptAt && now - lastPromptAt < promptIntervalMs;
     const hasInstalled = localStorage.getItem('pwa-installed');
 
     if (hasInstalled || isInStandaloneMode) {
@@ -40,18 +44,18 @@ export const PWAInstallPrompt: React.FC = () => {
       const promptEvent = e as BeforeInstallPromptEvent;
       setDeferredPrompt(promptEvent);
 
-      // Show prompt if not already prompted
-      if (!hasPrompted) {
+      if (!shouldThrottle) {
         setTimeout(() => {
           setShowPrompt(true);
+          localStorage.setItem('pwa-install-prompted-at', Date.now().toString());
         }, 3000); // Wait 3 seconds before showing
       }
     };
 
-    // For iOS - show manual instructions
-    if (iOS && !hasPrompted && !isInStandaloneMode) {
+    if (iOS && !shouldThrottle && !isInStandaloneMode) {
       setTimeout(() => {
         setShowPrompt(true);
+        localStorage.setItem('pwa-install-prompted-at', Date.now().toString());
       }, 3000);
     }
 
@@ -82,14 +86,13 @@ export const PWAInstallPrompt: React.FC = () => {
       localStorage.setItem('pwa-installed', 'true');
     }
 
-    // Mark as prompted regardless of outcome
-    localStorage.setItem('pwa-install-prompted', 'true');
+    localStorage.setItem('pwa-install-prompted-at', Date.now().toString());
     setShowPrompt(false);
     setDeferredPrompt(null);
   };
 
   const handleDismiss = () => {
-    localStorage.setItem('pwa-install-prompted', 'true');
+    localStorage.setItem('pwa-install-prompted-at', Date.now().toString());
     setShowPrompt(false);
   };
 
