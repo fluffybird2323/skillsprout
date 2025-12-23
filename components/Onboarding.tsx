@@ -50,10 +50,10 @@ export const Onboarding: React.FC = () => {
         {/* Header Section */}
         <div className="space-y-4">
            <h1 className="text-5xl md:text-7xl font-black tracking-tight text-gravity-text-main-light dark:text-gravity-text-main-dark">
-             {isAdding ? "New Vector" : "Initialize Learning"}
+             {isAdding ? "New Course" : "Start Learning"}
            </h1>
            <p className="text-xl text-gravity-text-sub-light dark:text-gravity-text-sub-dark font-light max-w-lg mx-auto">
-             Input your target knowledge parameter. <br/>AI will construct the path.
+             What do you want to learn today? <br/>AI will design your journey.
            </p>
         </div>
 

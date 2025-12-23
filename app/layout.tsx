@@ -5,8 +5,8 @@ import { Viewport } from 'next'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'SkillSprout | Agentic Learning Platform',
-  description: 'A next-generation AI learning platform. Generate interactive curriculums instantly.',
+  title: 'SkillSprout | Smart Learning Platform',
+  description: 'A next-generation AI learning platform. Generate interactive courses instantly.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -15,8 +15,8 @@ export const metadata = {
   },
   openGraph: {
     type: 'website',
-    title: 'SkillSprout - Antigravity Learning',
-    description: 'Generate complete, gamified curriculums for any topic instantly. Powered by Gemini.',
+    title: 'SkillSprout - Interactive Learning',
+    description: 'Generate complete, gamified courses for any topic instantly. Powered by AI.',
   },
   twitter: {
     card: 'summary_large_image',
