@@ -108,7 +108,7 @@ export const Onboarding: React.FC = () => {
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
-                <Sparkles className="w-5 h-5" /> Execute Protocol
+                <Sparkles className="w-5 h-5" /> {isAdding ? "Generate New Course" : "Start Learning"}
               </span>
             )}
           </Button>
