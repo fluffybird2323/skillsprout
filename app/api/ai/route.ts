@@ -346,14 +346,17 @@ async function buildRAGContext(topic: string, chapterTitle: string): Promise<RAG
   ).slice(0, 5);
 
   // Extract facts using AI
-  const factsPrompt = `Based on these search snippets about "${chapterTitle}" in ${topic}, extract 3-5 interesting, specific facts:
+  const factsPrompt = `Based on these search snippets about "${chapterTitle}" in the context of "${topic}", extract 3-5 interesting, specific facts.
 
+CRITICAL: ONLY extract facts that are directly relevant to "${topic}". If a snippet is about a different topic (even if the name is similar), IGNORE IT. Focus on practical, accurate information.
+
+SNIPPETS:
 ${uniqueResults.map(r => `- ${r.snippet}`).join('\n')}
 
 Return ONLY valid JSON:
 {
   "facts": ["fact 1", "fact 2", "fact 3"],
-  "summary": "A brief 2-sentence summary of the key concept"
+  "summary": "A brief 2-sentence summary of the key concept, strictly focused on ${topic}"
 }`;
 
   let facts: string[] = [];
@@ -672,7 +675,11 @@ Requirements:
 6. Vary question formats - some direct, some scenario-based, some application-based
 7. Explanations should teach, not just confirm
 
-IMPORTANT: Focus primarily on the specific "${topic}" and "${chapterTitle}". The Category (${category}) is just a guide - if it seems unrelated, ignore it and follow the Topic.
+TOPIC ADHERENCE (CRITICAL):
+- Your questions MUST be 100% about "${topic}".
+- If the category is "${category}" but "${topic}" is something else (like a practical skill), focus ONLY on the practical skill.
+- DO NOT drift into academic, historical, or literary tangents unless "${topic}" is specifically about those things.
+- For example, if the topic is "Hitchhiking in Japan", do NOT talk about ancient travelers or unrelated literature. Talk about modern hitchhiking, safety, laws, and culture in Japan.
 
 CRITICAL FORMATTING RULES (MUST FOLLOW EXACTLY):
 - multiple-choice:
@@ -719,7 +726,7 @@ EXAMPLE (multiple-choice):
 
   return generateWithAI(
     prompt,
-    `You are an expert educational content creator. Create engaging, accurate lessons for the topic "${topic}". Output strictly valid JSON.`,
+    `You are an expert educational content creator. Your goal is to create accurate, practical, and highly relevant lessons for the topic "${topic}". DO NOT hallucinate or bring in unrelated literary or historical facts. Focus strictly on what a modern learner needs to know about this specific topic. Output strictly valid JSON.`,
     0,
     'lesson-generation-quiz',
     { topic, chapterTitle }
@@ -765,7 +772,11 @@ Requirements:
 3. Include 2-3 follow-up multiple-choice questions
 4. Make the activity educational, not just fun
 
-IMPORTANT: Focus primarily on the specific "${topic}" and "${chapterTitle}". The Category (${category}) is just a guide - if it seems unrelated, ignore it and follow the Topic.
+TOPIC ADHERENCE (CRITICAL):
+- This activity MUST be 100% about "${topic}".
+- DO NOT drift into unrelated academic, historical, or literary tangents.
+- Focus on practical, real-world application of "${topic}".
+- If the topic is practical (like travel or a skill), the scenario should be a modern, realistic situation.
 
 ${widgetType === 'simulation' ? `
 SIMULATION REQUIREMENTS:
@@ -775,18 +786,17 @@ SIMULATION REQUIREMENTS:
 - Include a hint in the instruction
 - Feedback message should explain why the correct values matter` : ''}
 
-${widgetType === 'sorting' ? `
-SORTING REQUIREMENTS:
-- 4-6 items to sort
-- Clear correct order
-- Items should be obviously sequential when understood
-- Could be steps, timeline, priority, etc.` : ''}
+${widgetType === 'timeline' ? `
+TIMELINE REQUIREMENTS:
+- 4-6 key events or steps
+- Each item must have a year/time and description
+- Events must be in chronological order` : ''}
 
-${widgetType === 'canvas' ? `
-CANVAS REQUIREMENTS:
-- Clear drawing instruction
-- Provide a simple guide or reference
-- Focus on understanding through visualization` : ''}
+${widgetType === 'code-editor' ? `
+CODE EDITOR REQUIREMENTS:
+- Provide a starting snippet
+- Clear goal for modification
+- Include a solution or target state` : ''}
 
 Return ONLY valid JSON:
 {
@@ -804,8 +814,18 @@ Return ONLY valid JSON:
       "unit": "unit"
     }
   ],` : ''}
-  ${widgetType === 'sorting' ? `"sortingItems": ["Item 1", "Item 2", "Item 3", "Item 4"],` : ''}
-  ${widgetType === 'canvas' ? `"canvasBackground": "Description or guide",` : ''}
+  ${widgetType === 'timeline' ? `"timelineItems": [
+    {
+      "time": "Year/Step",
+      "event": "Description of event",
+      "importance": "Why this matters"
+    }
+  ],` : ''}
+  ${widgetType === 'code-editor' ? `"codeEditorParams": {
+    "language": "javascript/python/etc",
+    "initialCode": "starting code",
+    "solution": "expected code"
+  },` : ''}
   "quizQuestions": [
     {
       "type": "multiple-choice",
@@ -821,7 +841,7 @@ CRITICAL: For quiz questions, the FIRST option MUST be the correct answer. No le
 
   return generateWithAI(
     prompt,
-    `You are an expert in creating interactive educational experiences. Output strictly valid JSON.`,
+    `You are an expert in creating interactive educational experiences. Your goal is to create realistic, topic-focused scenarios for "${topic}". Avoid academic drift or unrelated historical/literary tangents. Output strictly valid JSON.`,
     0,
     'lesson-generation-interactive',
     { topic, chapterTitle }
@@ -829,7 +849,7 @@ CRITICAL: For quiz questions, the FIRST option MUST be the correct answer. No le
 }
 
 function getWidgetInstructions(widgetType: string, category: TopicCategory): string {
-  const instructions: Record<string, Record<TopicCategory, string>> = {
+  const instructions: Record<string, any> = {
     simulation: {
       science: "Create a realistic scientific experiment simulation with measurable parameters.",
       technology: "Create a configuration or tuning simulation with real-world tech parameters.",
@@ -842,32 +862,6 @@ function getWidgetInstructions(widgetType: string, category: TopicCategory): str
       'social-science': "Create a social dynamics simulation with behavioral parameters.",
       'practical-skills': "Create a hands-on technique adjustment simulation.",
       general: "Create an engaging parameter adjustment exercise.",
-    },
-    sorting: {
-      science: "Create a process or methodology ordering exercise.",
-      technology: "Create a workflow or algorithm step ordering exercise.",
-      mathematics: "Create a problem-solving step ordering exercise.",
-      history: "Create a chronological or cause-effect ordering exercise.",
-      language: "Create a sentence structure or story ordering exercise.",
-      arts: "Create a technique progression or artistic process ordering.",
-      business: "Create a strategy or process flow ordering exercise.",
-      health: "Create a treatment protocol or procedure ordering.",
-      'social-science': "Create a theory development or research method ordering.",
-      'practical-skills': "Create a step-by-step procedure ordering exercise.",
-      general: "Create a logical sequence ordering exercise.",
-    },
-    canvas: {
-      science: "Create a diagram drawing exercise (circuits, molecules, etc.).",
-      technology: "Create a flowchart or architecture diagram exercise.",
-      mathematics: "Create a geometric construction or graph drawing exercise.",
-      history: "Create a map annotation or timeline drawing exercise.",
-      language: "Create a character writing or symbol drawing exercise.",
-      arts: "Create a basic technique or composition drawing exercise.",
-      business: "Create an org chart or strategy diagram exercise.",
-      health: "Create an anatomy labeling or pathway drawing exercise.",
-      'social-science': "Create a concept map or relationship diagram exercise.",
-      'practical-skills': "Create a technique demonstration or plan drawing.",
-      general: "Create a concept visualization drawing exercise.",
     },
     'image-editor': {
       science: "Create an image annotation or analysis exercise.",
@@ -882,6 +876,14 @@ function getWidgetInstructions(widgetType: string, category: TopicCategory): str
       'practical-skills': "Create a before/after comparison exercise.",
       general: "Create an image enhancement or analysis exercise.",
     },
+    'timeline': {
+      history: "Create a chronological timeline of key events.",
+      general: "Create a timeline of steps, evolution, or key milestones.",
+    },
+    'code-editor': {
+      technology: "Create a coding challenge or code snippet analysis.",
+      general: "Create a logical problem-solving exercise with code-like syntax.",
+    }
   };
 
   return instructions[widgetType]?.[category] || instructions[widgetType]?.general || "Create an engaging interactive exercise.";

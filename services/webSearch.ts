@@ -51,7 +51,7 @@ export type TopicCategory =
 export interface LessonTemplate {
   category: TopicCategory;
   questionTypes: Array<'multiple-choice' | 'fill-blank' | 'true-false' | 'ordering' | 'matching'>;
-  interactiveWidgets: Array<'simulation' | 'sorting' | 'canvas' | 'image-editor' | 'code-editor' | 'timeline'>;
+  interactiveWidgets: Array<'simulation' | 'image-editor' | 'code-editor' | 'timeline'>;
   questionCount: { min: number; max: number };
   includeRealExamples: boolean;
   includeHistoricalContext: boolean;
@@ -64,7 +64,7 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   science: {
     category: 'science',
     questionTypes: ['multiple-choice', 'true-false', 'fill-blank', 'ordering'],
-    interactiveWidgets: ['simulation', 'sorting', 'canvas'],
+    interactiveWidgets: ['simulation'],
     questionCount: { min: 3, max: 6 },
     includeRealExamples: true,
     includeHistoricalContext: true,
@@ -74,7 +74,7 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   technology: {
     category: 'technology',
     questionTypes: ['multiple-choice', 'fill-blank', 'true-false'],
-    interactiveWidgets: ['simulation', 'sorting'],
+    interactiveWidgets: ['simulation'],
     questionCount: { min: 3, max: 5 },
     includeRealExamples: true,
     includeHistoricalContext: false,
@@ -84,7 +84,7 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   mathematics: {
     category: 'mathematics',
     questionTypes: ['fill-blank', 'multiple-choice', 'ordering'],
-    interactiveWidgets: ['simulation', 'canvas'],
+    interactiveWidgets: ['simulation'],
     questionCount: { min: 4, max: 7 },
     includeRealExamples: true,
     includeHistoricalContext: true,
@@ -94,7 +94,7 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   history: {
     category: 'history',
     questionTypes: ['multiple-choice', 'true-false', 'ordering', 'matching'],
-    interactiveWidgets: ['sorting'],
+    interactiveWidgets: ['timeline', 'simulation'],
     questionCount: { min: 4, max: 6 },
     includeRealExamples: true,
     includeHistoricalContext: true,
@@ -104,7 +104,7 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   language: {
     category: 'language',
     questionTypes: ['fill-blank', 'multiple-choice', 'matching'],
-    interactiveWidgets: ['canvas', 'sorting'],
+    interactiveWidgets: ['timeline', 'simulation'],
     questionCount: { min: 5, max: 8 },
     includeRealExamples: true,
     includeHistoricalContext: false,
@@ -114,7 +114,7 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   arts: {
     category: 'arts',
     questionTypes: ['multiple-choice', 'true-false', 'matching'],
-    interactiveWidgets: ['canvas', 'image-editor', 'sorting'],
+    interactiveWidgets: ['image-editor', 'simulation'],
     questionCount: { min: 3, max: 5 },
     includeRealExamples: true,
     includeHistoricalContext: true,
@@ -124,7 +124,7 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   business: {
     category: 'business',
     questionTypes: ['multiple-choice', 'true-false', 'fill-blank'],
-    interactiveWidgets: ['simulation', 'sorting'],
+    interactiveWidgets: ['simulation'],
     questionCount: { min: 4, max: 6 },
     includeRealExamples: true,
     includeHistoricalContext: false,
@@ -134,7 +134,7 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   health: {
     category: 'health',
     questionTypes: ['multiple-choice', 'true-false', 'fill-blank'],
-    interactiveWidgets: ['simulation', 'sorting'],
+    interactiveWidgets: ['simulation'],
     questionCount: { min: 4, max: 6 },
     includeRealExamples: true,
     includeHistoricalContext: false,
@@ -144,7 +144,7 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   'social-science': {
     category: 'social-science',
     questionTypes: ['multiple-choice', 'true-false', 'matching'],
-    interactiveWidgets: ['sorting', 'simulation'],
+    interactiveWidgets: ['simulation'],
     questionCount: { min: 4, max: 6 },
     includeRealExamples: true,
     includeHistoricalContext: true,
@@ -154,7 +154,7 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   'practical-skills': {
     category: 'practical-skills',
     questionTypes: ['ordering', 'multiple-choice', 'fill-blank'],
-    interactiveWidgets: ['sorting', 'simulation', 'canvas'],
+    interactiveWidgets: ['simulation'],
     questionCount: { min: 3, max: 5 },
     includeRealExamples: true,
     includeHistoricalContext: false,
@@ -164,10 +164,10 @@ export const TOPIC_TEMPLATES: Record<TopicCategory, LessonTemplate> = {
   general: {
     category: 'general',
     questionTypes: ['multiple-choice', 'true-false', 'fill-blank'],
-    interactiveWidgets: ['simulation', 'sorting'],
+    interactiveWidgets: ['simulation'],
     questionCount: { min: 3, max: 5 },
     includeRealExamples: true,
-    includeHistoricalContext: true,
+    includeHistoricalContext: false, // Default to false to prevent irrelevant academic drift
     includeCurrentEvents: true,
     resourceTypes: ['article', 'video', 'tutorial'],
   },
@@ -184,7 +184,7 @@ const CATEGORY_KEYWORDS: Record<TopicCategory, string[]> = {
   business: ['marketing', 'finance', 'accounting', 'management', 'entrepreneurship', 'economics', 'strategy', 'sales', 'investment', 'startup', 'leadership', 'negotiation', 'branding', 'career'],
   health: ['medicine', 'nutrition', 'fitness', 'mental health', 'anatomy', 'physiology', 'pharmacology', 'disease', 'wellness', 'exercise', 'diet', 'healthcare', 'therapy'],
   'social-science': ['psychology', 'sociology', 'anthropology', 'political science', 'economics', 'geography', 'culture', 'society', 'behavior', 'cognition', 'social'],
-  'practical-skills': ['cooking', 'gardening', 'woodworking', 'sewing', 'repair', 'diy', 'crafts', 'automotive', 'home improvement', 'survival', 'first aid', 'how to', 'tutorial', 'guide', 'tips', 'technique', 'method', 'camera', 'video', 'editing'],
+  'practical-skills': ['cooking', 'gardening', 'woodworking', 'sewing', 'repair', 'diy', 'crafts', 'automotive', 'home improvement', 'survival', 'first aid', 'how to', 'tutorial', 'guide', 'tips', 'technique', 'method', 'camera', 'video', 'editing', 'travel', 'backpacking', 'hiking', 'outdoors', 'navigation', 'transportation', 'hitchhiking', 'camping', 'adventure'],
   general: [],
 };
 
@@ -542,25 +542,21 @@ export function getQuestionCount(template: LessonTemplate): number {
 export function selectWidgetType(
   template: LessonTemplate,
   chapterTitle: string
-): 'simulation' | 'sorting' | 'canvas' | 'image-editor' {
+): 'simulation' | 'image-editor' | 'code-editor' | 'timeline' {
   const available = template.interactiveWidgets.filter(w =>
-    w === 'simulation' || w === 'sorting' || w === 'canvas' || w === 'image-editor'
-  ) as Array<'simulation' | 'sorting' | 'canvas' | 'image-editor'>;
+    w === 'simulation' || w === 'image-editor' || w === 'code-editor' || w === 'timeline'
+  ) as Array<'simulation' | 'image-editor' | 'code-editor' | 'timeline'>;
 
   // Context-aware selection
   const titleLower = chapterTitle.toLowerCase();
 
   // Prefer certain widgets for certain content
-  if (titleLower.includes('order') || titleLower.includes('sequence') || titleLower.includes('step')) {
-    if (available.includes('sorting')) return 'sorting';
-  }
-
-  if (titleLower.includes('draw') || titleLower.includes('diagram') || titleLower.includes('sketch')) {
-    if (available.includes('canvas')) return 'canvas';
-  }
-
   if (titleLower.includes('adjust') || titleLower.includes('parameter') || titleLower.includes('configure')) {
     if (available.includes('simulation')) return 'simulation';
+  }
+
+  if (titleLower.includes('history') || titleLower.includes('timeline') || titleLower.includes('era')) {
+    if (available.includes('timeline')) return 'timeline';
   }
 
   // Random selection from available
