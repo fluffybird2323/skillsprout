@@ -26,6 +26,7 @@ export const Roadmap: React.FC = () => {
   const [customPath, setCustomPath] = useState("");
 
   const [showShareModal, setShowShareModal] = useState<string | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<{ id: string, topic: string } | null>(null);
 
   const activeCourse = store.courses.find(c => c.id === store.activeCourseId);
 
@@ -373,7 +374,7 @@ export const Roadmap: React.FC = () => {
       <aside className="w-full md:w-72 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-md border-r border-gray-200 dark:border-gray-600 p-6 flex md:flex-col justify-between sticky top-0 z-30 md:h-screen transition-colors">
         <div className="flex md:flex-col gap-2 w-full overflow-x-auto md:overflow-visible no-scrollbar items-center md:items-stretch">
           <h1 className="hidden md:block text-2xl font-black text-gray-900 dark:text-gray-100 mb-10 tracking-tighter cursor-pointer" onClick={() => store.setAppState(AppState.ONBOARDING)}>
-              SKILL<span className="text-blue-600">SPROUT</span>
+              MANA<span className="text-blue-600">BU</span>
             </h1>
           
           <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] px-2 mb-4 hidden md:block">Navigation</div>
@@ -392,8 +393,8 @@ export const Roadmap: React.FC = () => {
 
           <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] px-2 mb-4 hidden md:block mt-4">Active Tracks</div>
           {store.courses.map(c => (
+            <div key={c.id} className="relative group flex-shrink-0 md:w-full">
              <button
-               key={c.id}
                onClick={() => store.switchCourse(c.id)}
                className={`flex items-center gap-4 p-3 rounded-xl transition-all duration-300 w-full text-left min-w-[60px] md:min-w-0 justify-center md:justify-start
                  ${c.id === store.activeCourseId && store.appState !== AppState.EXPLORE
@@ -404,6 +405,27 @@ export const Roadmap: React.FC = () => {
                <span className="text-xl">{c.icon}</span>
                <span className="font-bold hidden md:block truncate text-sm">{c.topic}</span>
              </button>
+             
+             {/* Delete Button */}
+             <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setCourseToDelete({ id: c.id, topic: c.topic });
+                }}
+                className={`
+                    absolute -top-1 -right-1 md:top-1/2 md:-translate-y-1/2 md:right-2 
+                    w-5 h-5 md:w-6 md:h-6 
+                    flex items-center justify-center
+                    rounded-full transition-all z-20 shadow-sm
+                    bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600
+                    text-gray-400 hover:text-red-500 hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/30
+                    md:opacity-0 md:group-hover:opacity-100
+                `}
+                title="Delete Learning Path"
+             >
+                <X className="w-3 h-3" />
+             </button>
+            </div>
           ))}
           
           <button 
@@ -753,6 +775,42 @@ export const Roadmap: React.FC = () => {
           onClose={() => setReferenceUnitId(null)}
           onGenerateReferences={handleGenerateReferences}
         />
+      )}
+
+      {/* Custom Deletion Confirmation Modal */}
+      {courseToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-2xl w-full max-w-sm p-6 overflow-hidden">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              
+              <h3 className="text-xl font-black text-gray-900 dark:text-gray-100 mb-2">Delete Path?</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+                Are you sure you want to delete the <span className="font-bold text-gray-900 dark:text-gray-100">"{courseToDelete.topic}"</span> learning path? This action cannot be undone.
+              </p>
+              
+              <div className="flex gap-3 w-full">
+                <button 
+                  onClick={() => setCourseToDelete(null)}
+                  className="flex-1 px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    store.deleteCourse(courseToDelete.id);
+                    setCourseToDelete(null);
+                  }}
+                  className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
