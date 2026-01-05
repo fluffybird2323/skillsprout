@@ -3,7 +3,7 @@ import { LessonContent } from '../types';
 import { storageValidator } from '../utils/storageValidation';
 import { storageRecovery } from './storageRecovery';
 
-const DB_NAME = 'skillsprout-cache';
+const DB_NAME = 'manabu-cache';
 const DB_VERSION = 2; // Bumped for RAG store
 const LESSON_STORE = 'lessons';
 const PREFETCH_STORE = 'prefetch';

@@ -1,5 +1,5 @@
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                  SKILLSPROUT - ARM QUICK START GUIDE                          ║
+║                  MANABU - ARM QUICK START GUIDE                          ║
 ║                    Production Server on ARM-based Ubuntu                       ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -13,8 +13,8 @@ source ~/.bashrc
 nvm install 20
 
 # 2. Clone and setup
-git clone <your-repo> ~/skillsprout
-cd ~/skillsprout
+git clone <your-repo> ~/manabu
+cd ~/manabu
 
 # 3. Create environment file
 cat > .env.local << 'EOF'
@@ -38,8 +38,8 @@ npm run build
 
    # Option C: As system service (production)
    sudo ./setup-systemd-arm.sh
-   sudo systemctl start skillsprout
-   sudo systemctl status skillsprout
+   sudo systemctl start manabu
+   sudo systemctl status manabu
 
 # 6. Access at http://localhost:3000
 
@@ -61,10 +61,10 @@ npm run build
    └─ Auto-restart, logging, persistence
    └─ Usage: sudo ./setup-systemd-arm.sh [app_path] [port]
    └─ Commands:
-        sudo systemctl start skillsprout    # Start
-        sudo systemctl stop skillsprout     # Stop
-        sudo systemctl restart skillsprout  # Restart
-        sudo journalctl -u skillsprout -f   # View logs
+        sudo systemctl start manabu    # Start
+        sudo systemctl stop manabu     # Stop
+        sudo systemctl restart manabu  # Restart
+        sudo journalctl -u manabu -f   # View logs
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  🔑 API KEYS SETUP
@@ -118,13 +118,13 @@ lsof -i :3000
 tail -f logs/prod-server.log
 
 # View logs (systemd service)
-sudo journalctl -u skillsprout -f
+sudo journalctl -u manabu -f
 
 # Restart server (systemd)
-sudo systemctl restart skillsprout
+sudo systemctl restart manabu
 
 # Enable auto-start on boot
-sudo systemctl enable skillsprout
+sudo systemctl enable manabu
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  🌐 ACCESSING YOUR SERVER

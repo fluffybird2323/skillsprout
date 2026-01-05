@@ -9,7 +9,7 @@ const nextConfig = {
 
   experimental: {
     serverActions: {
-      allowedOrigins: ['168.138.42.133', '168.138.42.133:3000', 'localhost:3000', 'skillsprout.artiestudio.org'],
+      allowedOrigins: ['168.138.42.133', '168.138.42.133:3000', 'localhost:3000', 'manabu.artiestudio.org'],
     },
   },
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Course, Unit, Chapter, AppState, LessonContent, ReviewItem, Theme, LoadingState, UnitReferences } from '../types';
+import { Course, Unit, Chapter, AppState, LessonContent, ReviewItem, Theme, LoadingState, UnitReferences, User } from '../types';
 import { storageValidator } from '../utils/storageValidation';
 import { storageRecovery } from '../services/storageRecovery';
 
@@ -9,6 +9,13 @@ interface GameState {
   courses: Course[];
   activeCourseId: string | null;
   theme: Theme;
+  
+  // Auth State
+  user: User | null;
+  token: string | null;
+  login: (user: User, token: string) => void;
+  logout: () => void;
+  updateUser: (updates: Partial<User>) => void;
 
   // User Profile
   xp: number;
@@ -29,6 +36,10 @@ interface GameState {
   // Loading State
   loadingState: LoadingState | null;
   prefetchedSuggestions: string[] | null;
+
+  // UI State
+  isAuthModalOpen: boolean;
+  setAuthModalOpen: (open: boolean) => void;
 
   // Actions
   setAppState: (state: AppState) => void;
@@ -103,6 +114,16 @@ export const useStore = create<GameState>()(
       courses: [],
       activeCourseId: null,
       theme: 'dark', // Default to dark Antigravity theme
+      
+      // Auth
+      user: null,
+      token: null,
+      login: (user, token) => set({ user, token }),
+      logout: () => set({ user: null, token: null }),
+      updateUser: (updates) => set((state) => ({
+        user: state.user ? { ...state.user, ...updates } : null
+      })),
+
       xp: 0,
       streak: 0,
       hearts: 5,
@@ -118,6 +139,10 @@ export const useStore = create<GameState>()(
       // Loading State
       loadingState: null,
       prefetchedSuggestions: null,
+
+      // UI State
+      isAuthModalOpen: false,
+      setAuthModalOpen: (open) => set({ isAuthModalOpen: open }),
 
       setAppState: (state) => set({ appState: state }),
       
@@ -183,9 +208,26 @@ export const useStore = create<GameState>()(
             }
           : unit;
 
+        const newUnits = [...course.units, unitToAppend];
         const newCourses = state.courses.map(c =>
-          c.id === state.activeCourseId ? { ...c, units: [...c.units, unitToAppend] } : c
+          c.id === state.activeCourseId ? { ...c, units: newUnits } : c
         );
+
+        // Auto-sync to server if logged in
+        if (state.token) {
+          fetch('/api/progress', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json', 
+              'Authorization': `Bearer ${state.token}`
+            },
+            body: JSON.stringify({
+              courseId: state.activeCourseId,
+              progressData: { units: newUnits }
+            }),
+          }).catch(console.error);
+        }
+
         return { courses: newCourses, appState: AppState.ROADMAP };
       }),
 
@@ -304,6 +346,7 @@ export const useStore = create<GameState>()(
 
         if (!state.activeCourseId || !state.activeUnitId || !state.activeChapterId) return state;
 
+        let finalUnits: Unit[] = [];
         const newCourses = state.courses.map(course => {
           if (course.id !== state.activeCourseId) return course;
           
@@ -387,8 +430,24 @@ export const useStore = create<GameState>()(
             }
           }
           
+          finalUnits = newUnits;
           return { ...course, units: newUnits, totalXp: course.totalXp + 10 };
         });
+
+        // Auto-sync to server if logged in
+        if (state.token && finalUnits.length > 0) {
+          fetch('/api/progress', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json', 
+              'Authorization': `Bearer ${state.token}`
+            },
+            body: JSON.stringify({
+              courseId: state.activeCourseId,
+              progressData: { units: finalUnits }
+            }),
+          }).catch(console.error);
+        }
 
         const today = new Date().setHours(0,0,0,0);
         const last = state.lastStudyDate ? new Date(state.lastStudyDate).setHours(0,0,0,0) : 0;
@@ -532,7 +591,7 @@ export const useStore = create<GameState>()(
       },
     }),
     {
-      name: 'skillsprout-storage',
+      name: 'manabu-storage',
       // Add storage validation and recovery
       storage: {
         getItem: async (name) => {
@@ -622,7 +681,7 @@ export const useStore = create<GameState>()(
               if (error.name === 'QuotaExceededError') {
                 console.warn('Storage quota exceeded, attempting cleanup');
                 // Clear old cache data to free up space
-                localStorage.removeItem('skillsprout-cache');
+                localStorage.removeItem('manabu-cache');
                 // Try again
                 try {
                   localStorage.setItem(name, JSON.stringify(value));

@@ -113,7 +113,7 @@ export const PWAInstallPrompt: React.FC = () => {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <h3 className="font-bold text-gray-900 dark:text-gravity-text-main-dark text-sm">
-                  Install SkillSprout
+                  Install Manabu
                 </h3>
                 <button
                   onClick={handleDismiss}
@@ -149,7 +149,7 @@ export const PWAInstallPrompt: React.FC = () => {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
               <h3 className="font-bold text-gray-900 dark:text-gravity-text-main-dark text-sm">
-                Install SkillSprout
+                Install Manabu
               </h3>
               <button
                 onClick={handleDismiss}

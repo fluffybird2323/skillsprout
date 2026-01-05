@@ -31,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private handleReset = () => {
     // Attempt to clear local storage if state is corrupted, but keep the key
-    localStorage.removeItem('skillsprout-storage');
+    localStorage.removeItem('manabu-storage');
     window.location.reload();
   };
 

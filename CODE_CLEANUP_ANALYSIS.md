@@ -1,6 +1,6 @@
 # 🔍 Code Cleanup Analysis Report
 **Generated:** December 8, 2024
-**Project:** SkillSprout - AI Learning Platform
+**Project:** Manabu - AI Learning Platform
 **Analysis Type:** Static Code Analysis + Dependency Mapping
 
 ---

@@ -1,6 +1,6 @@
 #cloud-config
 
-# Cloud-init script for deploying SkillSprout on Oracle Cloud Ampere (ARM64)
+# Cloud-init script for deploying Manabu on Oracle Cloud Ampere (ARM64)
 # Use with Ubuntu Canonical image on aarch64 architecture
 # Updated for Groq + Gemini dual-provider setup
 
@@ -12,33 +12,33 @@ packages:
   - curl
 
 users:
-  - name: skillsprout
+  - name: manabu
     shell: /bin/bash
     groups: [sudo]
     sudo: ['ALL=(ALL) NOPASSWD:ALL']
 
 write_files:
-  - path: /etc/systemd/system/skillsprout.service
+  - path: /etc/systemd/system/manabu.service
     content: |
       [Unit]
-      Description=SkillSprout Next.js App
+      Description=Manabu Next.js App
       After=network.target
 
       [Service]
       Type=simple
-      User=skillsprout
-      WorkingDirectory=/home/skillsprout/app
-      ExecStart=/home/skillsprout/.nvm/versions/node/v20.18.0/bin/node /home/skillsprout/.nvm/versions/node/v20.18.0/bin/npm start
+      User=manabu
+      WorkingDirectory=/home/manabu/app
+      ExecStart=/home/manabu/.nvm/versions/node/v20.18.0/bin/node /home/manabu/.nvm/versions/node/v20.18.0/bin/npm start
       Restart=on-failure
       RestartSec=10
       Environment=NODE_ENV=production
       Environment=PORT=3000
-      EnvironmentFile=/home/skillsprout/app/.env.local
+      EnvironmentFile=/home/manabu/app/.env.local
 
       [Install]
       WantedBy=multi-user.target
 
-  - path: /home/skillsprout/app/.env.local
+  - path: /home/manabu/app/.env.local
     content: |
       # Groq API Key (Primary - Free Tier)
       # Get from: https://console.groq.com/keys
@@ -57,21 +57,21 @@ write_files:
 
 runcmd:
   # Install Node.js via nvm (ARM64 compatible)
-  - sudo -u skillsprout bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash'
-  - sudo -u skillsprout bash -c 'export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm install 20'
+  - sudo -u manabu bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash'
+  - sudo -u manabu bash -c 'export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm install 20'
 
   # Clone repo (UPDATE THIS URL WITH YOUR REPO)
-  - sudo -u skillsprout git clone https://github.com/YOUR_USERNAME/skillz.git /home/skillsprout/app
+  - sudo -u manabu git clone https://github.com/YOUR_USERNAME/skillz.git /home/manabu/app
 
   # Install dependencies and build
-  - sudo -u skillsprout bash -c 'cd /home/skillsprout/app && export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && npm install && npm run build'
+  - sudo -u manabu bash -c 'cd /home/manabu/app && export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && npm install && npm run build'
 
   # Start service
   - systemctl daemon-reload
-  - systemctl enable skillsprout
-  - systemctl start skillsprout
+  - systemctl enable manabu
+  - systemctl start manabu
 
   # Open firewall port
   - iptables -I INPUT -p tcp --dport 3000 -j ACCEPT
 
-final_message: "SkillSprout deployed! Update /home/skillsprout/app/.env.local with your API keys, then: sudo systemctl restart skillsprout"
+final_message: "Manabu deployed! Update /home/manabu/app/.env.local with your API keys, then: sudo systemctl restart manabu"

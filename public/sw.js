@@ -1,6 +1,6 @@
-// SkillSprout Service Worker
-const CACHE_NAME = 'skillsprout-v1';
-const RUNTIME_CACHE = 'skillsprout-runtime';
+// Manabu Service Worker
+const CACHE_NAME = 'manabu-v1';
+const RUNTIME_CACHE = 'manabu-runtime';
 
 // Assets to cache on install
 const PRECACHE_URLS = [

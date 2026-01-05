@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'skillsprout-v1';
+const CACHE_NAME = 'manabu-v1';
 const urlsToCache = [
   './',
   './index.html',

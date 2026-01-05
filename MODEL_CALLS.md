@@ -1,7 +1,7 @@
 # AI Model Call Architecture
 
 ## Overview
-This document explains when and how AI model calls are made in SkillSprout. All model calls are tracked, logged, and cached appropriately.
+This document explains when and how AI model calls are made in Manabu. All model calls are tracked, logged, and cached appropriately.
 
 ## Model Call Manager
 **File**: `services/modelManager.ts`

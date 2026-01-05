@@ -74,7 +74,7 @@ Your icons are:
 To see how your icons look:
 
 1. **Browser Tab**: Check favicon-32x32.png appears in tab
-2. **Chrome Menu**: Right-click → "Install SkillSprout"
+2. **Chrome Menu**: Right-click → "Install Manabu"
 3. **After Install**: Check desktop/mobile app drawer
 
 ## 🚀 Next Steps

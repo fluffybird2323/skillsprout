@@ -87,8 +87,23 @@ export const GROQ_MODELS: GroqModelConfig[] = [
       },
     },
     temperature: 1,
-    priority: 7, // Lower priority - specialized use
+    priority: 8, // Lower priority - specialized use
   },
+  {
+    id: 'groq/compound-mini',
+    name: 'Groq Compound Mini (with tools)',
+    maxTokens: 1024, // Limited for compound
+    hasSpecialParams: true,
+    specialParams: {
+      compound_custom: {
+        tools: {
+          enabled_tools: ['web_search', 'code_interpreter', 'visit_website'],
+        },
+      },
+    },
+    temperature: 1,
+    priority: 8, // Lower priority - specialized use
+  }
 ];
 
 /**
@@ -222,7 +237,7 @@ export function calculateMaxTokens(prompt: string, purpose?: ModelCallPurpose): 
  */
 export async function generateWithGroq(
   prompt: string,
-  systemInstruction: string = 'You are a helpful AI assistant.',
+  systemInstruction: string = 'Act as a Gamified Curriculum Architect. Your task is to turn a standard boring semester syllabus into an engaging "Skill Journey."',
   purpose?: ModelCallPurpose
 ): Promise<string> {
   const model = selectRandomModel();

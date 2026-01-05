@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { generateLessonOptimized } from '../services/aiOptimized';
 import { generateUnit, generatePathSuggestions, generateUnitReferences } from '../services/ai';
-import { Star, Lock, Check, Loader2, Plus, Trash2, BookOpen, Settings, Dumbbell, Cloud, MapPin, ArrowRight, X, Library } from 'lucide-react';
+import { Star, Lock, Check, Loader2, Plus, Trash2, BookOpen, Settings, Dumbbell, Cloud, MapPin, ArrowRight, X, Library, Share2, Edit2, MoreVertical, Layout, Compass, LogOut, User as UserIcon } from 'lucide-react';
 import { Unit, Chapter, AppState, DEFAULT_LOADER_CONFIG, UnitReferences } from '../types';
 import { Button } from './ui/Button';
 import { LessonLoader, useLessonLoader } from './LessonLoaderOptimized';
@@ -25,7 +25,33 @@ export const Roadmap: React.FC = () => {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [customPath, setCustomPath] = useState("");
 
+  const [showShareModal, setShowShareModal] = useState<string | null>(null);
+
   const activeCourse = store.courses.find(c => c.id === store.activeCourseId);
+
+  const handleSignOut = () => {
+    if (confirm('Are you sure you want to sign out? Your local progress will be saved but sync will stop.')) {
+      store.logout();
+    }
+  };
+
+  const handleShare = (courseId: string) => {
+    const shareUrl = `${window.location.origin}/?courseId=${courseId}`;
+    if (navigator.share) {
+      navigator.share({
+        title: activeCourse?.topic || 'Manabu Course',
+        text: `Check out this course on ${activeCourse?.topic}!`,
+        url: shareUrl,
+      });
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      alert('Link copied to clipboard!');
+    }
+  };
+
+  const handleExplore = () => {
+    store.setAppState(AppState.EXPLORE);
+  };
 
   // Reference Section State
   const [referenceUnitId, setReferenceUnitId] = useState<string | null>(null);
@@ -52,7 +78,7 @@ export const Roadmap: React.FC = () => {
     };
   }, []);
 
-  if (!activeCourse) return null;
+  if (!activeCourse && store.appState !== AppState.EXPLORE) return null;
 
   const totalChapters = activeCourse.units.reduce((acc, unit) => acc + unit.chapters.length, 0);
   const completedChapters = activeCourse.units.reduce((acc, unit) => 
@@ -346,17 +372,31 @@ export const Roadmap: React.FC = () => {
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-72 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-md border-r border-gray-200 dark:border-gray-600 p-6 flex md:flex-col justify-between sticky top-0 z-30 md:h-screen transition-colors">
         <div className="flex md:flex-col gap-2 w-full overflow-x-auto md:overflow-visible no-scrollbar items-center md:items-stretch">
-          <h1 className="hidden md:block text-2xl font-black text-gray-900 dark:text-gray-100 mb-10 tracking-tighter">
+          <h1 className="hidden md:block text-2xl font-black text-gray-900 dark:text-gray-100 mb-10 tracking-tighter cursor-pointer" onClick={() => store.setAppState(AppState.ONBOARDING)}>
               SKILL<span className="text-blue-600">SPROUT</span>
             </h1>
           
-          <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] px-2 mb-4 hidden md:block">Active Tracks</div>
+          <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] px-2 mb-4 hidden md:block">Navigation</div>
+          
+          <button
+            onClick={handleExplore}
+            className={`flex items-center gap-4 p-3 rounded-xl transition-all duration-300 w-full text-left min-w-[60px] md:min-w-0 justify-center md:justify-start mb-2
+              ${store.appState === AppState.EXPLORE 
+                 ? 'bg-blue-600 text-white shadow-md' 
+                 : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}
+            `}
+          >
+            <Compass className="w-5 h-5" />
+            <span className="font-bold hidden md:block text-sm">Explore</span>
+          </button>
+
+          <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] px-2 mb-4 hidden md:block mt-4">Active Tracks</div>
           {store.courses.map(c => (
              <button
                key={c.id}
                onClick={() => store.switchCourse(c.id)}
                className={`flex items-center gap-4 p-3 rounded-xl transition-all duration-300 w-full text-left min-w-[60px] md:min-w-0 justify-center md:justify-start
-                 ${c.id === store.activeCourseId 
+                 ${c.id === store.activeCourseId && store.appState !== AppState.EXPLORE
                     ? 'bg-blue-600 text-white shadow-md' 
                     : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}
                `}
@@ -375,25 +415,53 @@ export const Roadmap: React.FC = () => {
           </button>
         </div>
 
-        <div className="hidden md:block border-t border-gray-200 dark:border-gray-600 pt-6">
-             <div className="flex items-center gap-4 p-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:shadow-md transition-all cursor-pointer">
-                  <div className="w-10 h-10 bg-yellow-500 text-gray-900 rounded-full flex items-center justify-center font-bold">
-                    U
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900 dark:text-gray-100 text-xs uppercase tracking-wider">User Profile</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">XP: {store.xp}</div>
+        <div className="hidden md:block border-t border-gravity-border-light dark:border-gravity-border-dark pt-6">
+             {store.user ? (
+               <div className="group relative">
+                 <div className="flex items-center gap-4 p-3 rounded-2xl bg-black/5 dark:bg-white/5 border border-gravity-border-light dark:border-gravity-border-dark hover:bg-black/10 dark:hover:bg-white/10 transition-all cursor-pointer">
+                    <div className="w-10 h-10 bg-gravity-blue text-white rounded-full flex items-center justify-center font-bold text-xl shadow-inner shrink-0">
+                      {store.user.emoji || '👤'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-gravity-text-main-light dark:text-gravity-text-main-dark text-xs uppercase tracking-wider truncate">
+                        {store.user.fullName}
+                      </div>
+                      <div className="text-[10px] text-gravity-text-sub-light dark:text-gravity-text-sub-dark font-mono flex items-center gap-2">
+                        <span>XP: {store.xp}</span>
+                        <span className="w-1 h-1 bg-gravity-blue rounded-full"></span>
+                        <span>🔥 {store.streak}</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={handleSignOut}
+                      className="p-2 text-gravity-text-sub-light dark:text-gravity-text-sub-dark hover:text-red-500 transition-colors"
+                      title="Sign Out"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
                  </div>
-             </div>
+               </div>
+             ) : (
+               <button
+                 onClick={() => store.setAuthModalOpen(true)}
+                 className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gravity-blue text-white font-bold shadow-lg hover:shadow-gravity-blue/20 hover:scale-[1.02] active:scale-95 transition-all group"
+               >
+                 <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                   <UserIcon className="w-4 h-4" />
+                 </div>
+                 <span>Sign In</span>
+               </button>
+             )}
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 pb-32 relative overflow-y-auto overflow-x-hidden">
+      {store.appState !== AppState.EXPLORE && activeCourse && (
+        <main className="flex-1 pb-32 relative overflow-y-auto overflow-x-hidden">
         
         {/* Mobile Header */}
         <div className="sticky top-0 z-40 bg-gray-50/90 dark:bg-gray-900/90 backdrop-blur border-b border-gray-200 dark:border-gray-600 px-4 py-3 flex justify-between items-center md:hidden">
-             <div className="font-black text-xl tracking-tighter">SKILL<span className="text-blue-600">SPROUT</span></div>
+             <div className="font-black text-xl tracking-tighter">MANA<span className="text-blue-600">BU</span></div>
              <div className="flex items-center gap-4 ml-auto">
                 <span className="font-bold text-yellow-500 font-mono">🔥 {store.streak}</span>
                 <span className="font-bold text-red-500 font-mono">❤️ {store.hearts}</span>
@@ -440,12 +508,21 @@ export const Roadmap: React.FC = () => {
           {/* Controls */}
           <div className="flex justify-between items-center mb-8">
              <div className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-[0.2em] text-xs">Curriculum Path</div>
-             <button 
-               onClick={() => setManageMode(!manageMode)}
-               className={`p-3 rounded-full transition-all ${manageMode ? 'bg-gray-900 dark:bg-white text-gray-50 dark:text-gray-900' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-             >
-                <Settings className="w-5 h-5" />
-             </button>
+             <div className="flex items-center gap-2">
+               <button
+                 onClick={() => handleShare(activeCourse.id)}
+                 className="p-3 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                 title="Share Course"
+               >
+                 <Share2 className="w-5 h-5" />
+               </button>
+               <button 
+                 onClick={() => setManageMode(!manageMode)}
+                 className={`p-3 rounded-full transition-all ${manageMode ? 'bg-gray-900 dark:bg-white text-gray-50 dark:text-gray-900' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+               >
+                  <Settings className="w-5 h-5" />
+               </button>
+             </div>
           </div>
 
           {manageMode && (
@@ -615,6 +692,7 @@ export const Roadmap: React.FC = () => {
         </div>
 
       </main>
+      )}
 
       {/* Path Selector Modal */}
       {isPathModalOpen && (

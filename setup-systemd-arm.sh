@@ -1,16 +1,16 @@
 #!/bin/bash
 
 ################################################################################
-# Setup systemd service for SkillSprout on ARM-based Ubuntu
+# Setup systemd service for Manabu on ARM-based Ubuntu
 #
-# This script creates a systemd service to run SkillSprout as a daemon
+# This script creates a systemd service to run Manabu as a daemon
 # Requires: sudo privileges
 #
 # Usage:
 #   sudo ./setup-systemd-arm.sh [app_path] [port]
 #
 # Examples:
-#   sudo ./setup-systemd-arm.sh /home/skillsprout/app 3000
+#   sudo ./setup-systemd-arm.sh /home/manabu/app 3000
 #   sudo ./setup-systemd-arm.sh                          # Use current dir & port 3000
 #
 ################################################################################
@@ -27,12 +27,12 @@ NC='\033[0m'
 # Configuration
 APP_PATH=${1:-.}
 PORT=${2:-3000}
-SERVICE_NAME="skillsprout"
-SERVICE_USER="skillsprout"
+SERVICE_NAME="manabu"
+SERVICE_USER="manabu"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
-echo -e "${BLUE}  SkillSprout systemd Service Setup (ARM64)${NC}"
+echo -e "${BLUE}  Manabu systemd Service Setup (ARM64)${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}\n"
 
 # Check if running as root
@@ -70,7 +70,7 @@ echo -e "${YELLOW}⚠ Creating systemd service file...${NC}"
 
 cat > "$SERVICE_FILE" << EOF
 [Unit]
-Description=SkillSprout AI Learning Platform (Next.js)
+Description=Manabu AI Learning Platform (Next.js)
 After=network.target
 Wants=network-online.target
 

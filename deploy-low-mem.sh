@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ################################################################################
-# SkillSprout - Low Memory Production Deployment Script
+# Manabu - Low Memory Production Deployment Script
 # Optimized for: 1 vCPU, 1GB RAM Ubuntu VM (AMD/ARM)
 #
 # This script:
@@ -18,7 +18,7 @@
 #   sudo ./deploy-low-mem.sh [github-url] [port]
 #
 # Example:
-#   sudo ./deploy-low-mem.sh https://github.com/username/skillsprout.git 3000
+#   sudo ./deploy-low-mem.sh https://github.com/username/manabu.git 3000
 #
 ################################################################################
 
@@ -35,9 +35,9 @@ NC='\033[0m'
 # Configuration
 REPO_URL="${1:-}"
 PORT="${2:-3000}"
-APP_USER="skillsprout"
+APP_USER="manabu"
 APP_DIR="/home/$APP_USER/app"
-SERVICE_NAME="skillsprout"
+SERVICE_NAME="manabu"
 NODE_VERSION="20"
 
 # Memory optimization settings
@@ -97,7 +97,7 @@ check_memory() {
 ################################################################################
 
 clear
-print_header "SkillSprout Production Deployment"
+print_header "Manabu Production Deployment"
 print_header "Low Memory Setup (1GB RAM Optimized)"
 
 # Check if running as root
@@ -111,7 +111,7 @@ if [ -z "$REPO_URL" ]; then
     print_error "Repository URL is required!"
     echo ""
     echo "Usage: sudo $0 <github-url> [port]"
-    echo "Example: sudo $0 https://github.com/fluffybird2323/skillsprout.git 3000"
+    echo "Example: sudo $0 https://github.com/fluffybird2323/manabu.git 3000"
     echo ""
     exit 1
 fi
@@ -237,7 +237,7 @@ print_header "Step 6/9: Setting Up Environment"
 print_step "Creating .env.local template..."
 
 sudo -u "$APP_USER" cat > "$APP_DIR/.env.local" << 'ENVEOF'
-# SkillSprout API Keys Configuration
+# Manabu API Keys Configuration
 
 # Required: Groq API (Free Tier - Primary Provider)
 # Get your key from: https://console.groq.com/keys
@@ -310,7 +310,7 @@ print_step "Creating systemd service file..."
 
 cat > "/etc/systemd/system/${SERVICE_NAME}.service" << SERVICEEOF
 [Unit]
-Description=SkillSprout AI Learning Platform
+Description=Manabu AI Learning Platform
 After=network.target
 Wants=network-online.target
 
@@ -390,7 +390,7 @@ fi
 print_header "✓ Deployment Complete!"
 
 echo ""
-print_success "SkillSprout has been deployed successfully!"
+print_success "Manabu has been deployed successfully!"
 echo ""
 
 print_info "Installation Summary:"

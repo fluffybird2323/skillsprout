@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ################################################################################
-# SkillSprout Production Startup Script for ARM-based Ubuntu
+# Manabu Production Startup Script for ARM-based Ubuntu
 #
 # Usage:
 #   chmod +x start-prod-arm.sh
@@ -31,7 +31,7 @@ NC='\033[0m' # No Color
 # Configuration
 PORT=${1:-3000}
 ENVIRONMENT=${2:-production}
-PROJECT_NAME="SkillSprout"
+PROJECT_NAME="Manabu"
 LOG_DIR="./logs"
 LOG_FILE="$LOG_DIR/prod-server.log"
 
@@ -175,7 +175,7 @@ echo ""
 print_info "Next steps:"
 echo "  1. Open http://localhost:$PORT in your browser"
 echo "  2. If API keys are not set, update .env.local"
-echo "  3. Restart server: systemctl restart skillsprout (if using systemd)"
+echo "  3. Restart server: systemctl restart manabu (if using systemd)"
 echo ""
 
 # Wait for the server process

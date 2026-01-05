@@ -46,7 +46,7 @@ export async function validateURL(url: string): Promise<URLValidationResult> {
           method: 'HEAD',
           signal: controller.signal,
           headers: {
-            'User-Agent': 'SkillSprout-Bot/1.0',
+            'User-Agent': 'Manabu-Bot/1.0',
           },
         });
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, Sparkles, Brain, X, Coffee, Zap, Flame } from 'lucide-react';
+import { Loader2, Sparkles, Brain, X, Coffee, Zap, Flame, User as UserIcon } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useStore } from '../store/useStore';
 import { generateCourseOutline } from '../services/ai';
@@ -17,12 +17,42 @@ export const Onboarding: React.FC = () => {
     e.preventDefault();
     if (!topic.trim()) return;
 
+    if (!store.user) {
+      store.setAuthModalOpen(true);
+      return;
+    }
+
     setLoading(true);
     setAppState(AppState.GENERATING_COURSE);
     
     try {
       const course = await generateCourseOutline(topic, depth);
-      store.addCourse(course);
+      
+      // Add ownership info if logged in
+      const enrichedCourse = {
+        ...course,
+        userId: store.user?.id,
+        generatedByName: store.user?.fullName || 'Anonymous',
+        isPublic: true // Default newly generated courses to public for indexing
+      };
+
+      store.addCourse(enrichedCourse);
+      
+      // Sync to local server DB for indexing
+      try {
+        await fetch('/api/courses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            course: enrichedCourse,
+            userId: store.user?.id,
+            generatedByName: enrichedCourse.generatedByName,
+            isPublic: true
+          }),
+        });
+      } catch (e) {
+        console.warn('Failed to sync course to server:', e);
+      }
     } catch (error) {
       console.error(error);
       setLoading(false);
@@ -108,7 +138,15 @@ export const Onboarding: React.FC = () => {
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
-                <Sparkles className="w-5 h-5" /> {isAdding ? "Generate New Course" : "Start Learning"}
+                {!store.user ? (
+                  <>
+                    <UserIcon className="w-5 h-5" /> Sign In to Start Learning
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5" /> {isAdding ? "Generate New Course" : "Start Learning"}
+                  </>
+                )}
               </span>
             )}
           </Button>

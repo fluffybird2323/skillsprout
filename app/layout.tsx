@@ -5,17 +5,17 @@ import { Viewport } from 'next'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'SkillSprout | Smart Learning Platform',
+  title: 'Manabu | Smart Learning Platform',
   description: 'A next-generation AI learning platform. Generate interactive courses instantly.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'SkillSprout',
+    title: 'Manabu',
   },
   openGraph: {
     type: 'website',
-    title: 'SkillSprout - Interactive Learning',
+    title: 'Manabu - Interactive Learning',
     description: 'Generate complete, gamified courses for any topic instantly. Powered by AI.',
   },
   twitter: {

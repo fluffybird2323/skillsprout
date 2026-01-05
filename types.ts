@@ -90,6 +90,24 @@ export interface Course {
   icon: string; // emoji or url
   units: Unit[];
   totalXp: number;
+  userId?: string;
+  generatedByName?: string;
+  isPublic?: boolean;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  emoji: string;
+  xp: number;
+  streak: number;
+  hearts: number;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
 }
 
 export interface ReviewItem {
@@ -110,7 +128,8 @@ export enum AppState {
   LESSON_ACTIVE,
   LESSON_COMPLETE,
   MANAGE_COURSE, // Editing the track
-  REVIEW_SESSION // SRS Session
+  REVIEW_SESSION, // SRS Session
+  EXPLORE // Browse public courses
 }
 
 export type Theme = 'light' | 'dark';
