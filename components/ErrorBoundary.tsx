@@ -1,8 +1,9 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from './ui/Button';
+import { withTranslation, WithTranslation } from 'react-i18next';
 
-interface Props {
+interface Props extends WithTranslation {
   children: ReactNode;
 }
 
@@ -11,7 +12,7 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundaryBase extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
@@ -36,6 +37,7 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   public render() {
+    const { t } = this.props;
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-brand-background flex flex-col items-center justify-center p-6 text-center text-slate-200 font-sans">
@@ -46,9 +48,9 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
           </div>
 
-          <h1 className="text-4xl font-black text-white mb-2 tracking-tight uppercase">System Failure</h1>
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tight uppercase">{t('error.systemFailure')}</h1>
           <p className="text-slate-400 font-mono mb-8 max-w-md">
-            Critical error detected in the neural matrix. The application state has desynchronized.
+            {t('error.criticalError')}
           </p>
 
           <div className="bg-slate-900/50 p-4 rounded-xl border border-white/10 max-w-lg w-full mb-8 overflow-auto max-h-40">
@@ -64,7 +66,7 @@ export class ErrorBoundary extends Component<Props, State> {
               fullWidth
               className="flex items-center justify-center gap-2"
             >
-              <RefreshCw className="w-4 h-4" /> Reboot System
+              <RefreshCw className="w-4 h-4" /> {t('error.rebootSystem')}
             </Button>
             
             <Button 
@@ -73,7 +75,7 @@ export class ErrorBoundary extends Component<Props, State> {
               fullWidth
               className="flex items-center justify-center gap-2"
             >
-              <Home className="w-4 h-4" /> Hard Reset (Clear Data)
+              <Home className="w-4 h-4" /> {t('error.hardReset')}
             </Button>
           </div>
         </div>
@@ -83,3 +85,5 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
+export const ErrorBoundary = withTranslation()(ErrorBoundaryBase);

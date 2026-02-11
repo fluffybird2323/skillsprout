@@ -97,26 +97,31 @@ class LessonCacheService {
     return `prefetch-${courseId}`;
   }
 
-  async getCachedLesson(topic: string, chapterTitle: string, type?: string): Promise<LessonContent | null> {
+  async getCachedLesson(topic: string, chapterTitle: string, type?: string, chapterId?: string): Promise<LessonContent | null> {
     const key = this.generateLessonKey(topic, chapterTitle, type);
     const now = Date.now();
 
     // Check memory cache first
     const memCached = this.memoryCache.get(key);
     if (memCached && memCached.expiresAt > now) {
+      // Inject chapterId if provided and missing
+      if (chapterId && !memCached.content.chapterId) {
+        memCached.content.chapterId = chapterId;
+      }
+
       // Validate cached content before returning
       const validation = storageValidator.validateLessonContent(memCached.content);
       if (validation.isValid) {
         return memCached.content;
       } else {
         console.warn('Invalid lesson content in memory cache, attempting recovery:', validation.errors);
-        // Remove invalid content from memory cache
         this.memoryCache.delete(key);
         
         // Attempt recovery
         const recoveryResult = await storageRecovery.recoverLessonContent(memCached.content, topic, chapterTitle);
         if (recoveryResult.success && recoveryResult.recoveredData) {
           console.log('Successfully recovered lesson content from memory cache');
+          if (chapterId) recoveryResult.recoveredData.chapterId = chapterId;
           return recoveryResult.recoveredData;
         }
       }
@@ -128,6 +133,11 @@ class LessonCacheService {
       try {
         const cached = await db.get(LESSON_STORE, key) as CachedLesson | undefined;
         if (cached && cached.expiresAt > now) {
+          // Inject chapterId if provided and missing
+          if (chapterId && !cached.content.chapterId) {
+             cached.content.chapterId = chapterId;
+          }
+
           // Validate cached content before using
           const validation = storageValidator.validateLessonContent(cached.content);
           if (validation.isValid) {
@@ -145,6 +155,7 @@ class LessonCacheService {
             if (recoveryResult.success && recoveryResult.recoveredData) {
               console.log('Successfully recovered lesson content from IndexedDB');
               // Cache the recovered content
+              if (chapterId) recoveryResult.recoveredData.chapterId = chapterId;
               await this.cacheLesson(topic, chapterTitle, recoveryResult.recoveredData, type);
               return recoveryResult.recoveredData;
             }

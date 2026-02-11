@@ -25,6 +25,7 @@ export interface GroqModelConfig {
   specialParams?: Record<string, any>;
   temperature?: number;
   priority?: number; // Higher = prefer more
+  isMultilingual?: boolean;
 }
 
 export const GROQ_MODELS: GroqModelConfig[] = [
@@ -34,6 +35,7 @@ export const GROQ_MODELS: GroqModelConfig[] = [
     maxTokens: 8192,
     temperature: 0.7,
     priority: 10, // High priority - very good
+    isMultilingual: true,
   },
   {
     id: 'meta-llama/llama-4-maverick-17b-128e-instruct',
@@ -59,6 +61,7 @@ export const GROQ_MODELS: GroqModelConfig[] = [
     },
     temperature: 1,
     priority: 10, // High quality
+    isMultilingual: true,
   },
   {
     id: 'moonshotai/kimi-k2-instruct-0905',
@@ -73,6 +76,7 @@ export const GROQ_MODELS: GroqModelConfig[] = [
     maxTokens: 8192,
     temperature: 0.7,
     priority: 8,
+    isMultilingual: true,
   },
   {
     id: 'groq/compound',
@@ -142,18 +146,30 @@ let roundRobinIndex = 0;
  * Get a model using least-recently-used strategy for maximum load distribution
  * This ensures all models get used evenly to maximize free tier limits
  */
-export function selectRandomModel(): GroqModelConfig {
+export function selectRandomModel(requireMultilingual: boolean = false): GroqModelConfig {
   // Filter out models that have failed too many times
-  const availableModels = GROQ_MODELS.filter(model => {
+  let availableModels = GROQ_MODELS.filter(model => {
     const failures = modelFailures.get(model.id) || 0;
     return failures < FAILURE_THRESHOLD;
   });
+
+  // If multilingual is required, filter for multilingual models
+  if (requireMultilingual) {
+    const multilingualModels = availableModels.filter(m => m.isMultilingual);
+    if (multilingualModels.length > 0) {
+      availableModels = multilingualModels;
+      console.log(`[Groq] Filtering for multilingual models. Found: ${availableModels.length}`);
+    } else {
+      console.warn(`[Groq] Multilingual required but no healthy multilingual models found. Falling back to all models.`);
+    }
+  }
 
   if (availableModels.length === 0) {
     // All models failed - reset and try again
     modelFailures.clear();
     console.warn('[Groq] All models failed, resetting failure counts');
-    return GROQ_MODELS[0];
+    // Recursively call to get a model after reset
+    return selectRandomModel(requireMultilingual);
   }
 
   // Get usage count in last 60 seconds for each model
@@ -238,9 +254,10 @@ export function calculateMaxTokens(prompt: string, purpose?: ModelCallPurpose): 
 export async function generateWithGroq(
   prompt: string,
   systemInstruction: string = 'Act as a Gamified Curriculum Architect. Your task is to turn a standard boring semester syllabus into an engaging "Skill Journey."',
-  purpose?: ModelCallPurpose
+  purpose?: ModelCallPurpose,
+  requireMultilingual: boolean = false
 ): Promise<string> {
-  const model = selectRandomModel();
+  const model = selectRandomModel(requireMultilingual);
 
   // Calculate appropriate token limit
   const calculatedMaxTokens = calculateMaxTokens(prompt, purpose);
@@ -294,9 +311,10 @@ export async function generateWithGroq(
 export async function generateWithGroqStreaming(
   prompt: string,
   systemInstruction: string = 'You are a helpful AI assistant.',
-  purpose?: ModelCallPurpose
+  purpose?: ModelCallPurpose,
+  requireMultilingual: boolean = false
 ): Promise<string> {
-  const model = selectRandomModel();
+  const model = selectRandomModel(requireMultilingual);
 
   // Calculate appropriate token limit
   const calculatedMaxTokens = calculateMaxTokens(prompt, purpose);

@@ -8,12 +8,19 @@ export async function GET(req: NextRequest) {
     const topic = searchParams.get('topic');
     const limit = parseInt(searchParams.get('limit') || '10');
 
+    // Clean up expired courses (older than 7 days)
+    try {
+      db.prepare("DELETE FROM courses WHERE created_at < datetime('now', '-7 days')").run();
+    } catch (cleanupError) {
+      console.error('Failed to cleanup expired courses:', cleanupError);
+    }
+
     let rows;
     if (topic) {
-      const stmt = db.prepare('SELECT data FROM courses WHERE topic LIKE ? ORDER BY created_at DESC LIMIT ?');
+      const stmt = db.prepare("SELECT data FROM courses WHERE topic LIKE ? AND created_at >= datetime('now', '-7 days') ORDER BY created_at DESC LIMIT ?");
       rows = stmt.all(`%${topic}%`, limit);
     } else {
-      const stmt = db.prepare('SELECT data FROM courses ORDER BY created_at DESC LIMIT ?');
+      const stmt = db.prepare("SELECT data FROM courses WHERE created_at >= datetime('now', '-7 days') ORDER BY created_at DESC LIMIT ?");
       rows = stmt.all(limit);
     }
 

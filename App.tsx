@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore } from './store/useStore';
 import { Onboarding } from './components/Onboarding';
 import { Roadmap } from './components/Roadmap';
@@ -6,12 +7,14 @@ import { Lesson } from './components/Lesson';
 import { AppState } from './types';
 import { Loader2 } from 'lucide-react';
 import { ParticleBackground } from './components/ui/ParticleBackground';
-import { ThemeToggle } from './components/ui/ThemeToggle';
+import { SettingsMenu } from './components/ui/SettingsMenu';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { AuthModal } from './components/AuthModal';
 import { ExploreCourses } from './components/ExploreCourses';
+import './lib/i18n';
 
 const App: React.FC = () => {
+  const { t } = useTranslation();
   const { appState, theme, user, addCourse, switchCourse, courses, isAuthModalOpen, setAuthModalOpen } = useStore();
 
   // Handle shared course ingress
@@ -35,7 +38,7 @@ const App: React.FC = () => {
             const { course, generatedByName } = await res.json();
             addCourse({
               ...course,
-              generatedByName: generatedByName || 'Anonymous'
+              generatedByName: generatedByName || t('common.anonymous')
             });
             // Clear URL
             window.history.replaceState({}, '', window.location.pathname);
@@ -47,7 +50,7 @@ const App: React.FC = () => {
 
       fetchSharedCourse();
     }
-  }, [addCourse, switchCourse, courses]);
+  }, [addCourse, switchCourse, courses, t]);
 
   // Apply dark mode class to html element
   useEffect(() => {
@@ -117,7 +120,7 @@ const App: React.FC = () => {
   return (
     <main className="min-h-screen transition-colors duration-300 bg-gravity-light dark:bg-gravity-dark text-gravity-text-main-light dark:text-gravity-text-main-dark font-sans selection:bg-gravity-blue selection:text-white relative overflow-hidden">
       <ParticleBackground />
-      <ThemeToggle />
+      <SettingsMenu />
       <PWAInstallPrompt />
       
       {/* Auth UI */}
@@ -126,7 +129,7 @@ const App: React.FC = () => {
           onClick={() => setAuthModalOpen(true)}
           className="fixed top-4 right-16 z-[60] px-4 py-2 bg-gravity-blue text-white text-sm font-bold rounded-xl shadow-lg hover:bg-gravity-blue/90 transition-all active:scale-95 flex items-center gap-2"
         >
-          <span>Sign In</span>
+          <span>{t('auth.signIn')}</span>
         </button>
       )}
 

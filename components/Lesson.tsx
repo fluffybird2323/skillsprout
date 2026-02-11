@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import confetti from 'canvas-confetti';
 import { X, Heart, CheckCircle, AlertCircle, LayoutDashboard, BookOpen, RefreshCw } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -30,6 +31,7 @@ function normalizeAnswer(text: string): string {
 }
 
 export const Lesson: React.FC = () => {
+  const { t } = useTranslation();
   const store = useStore();
   const { currentLesson, hearts, setAppState, completeLesson, processAnswer } = store;
 
@@ -61,16 +63,24 @@ export const Lesson: React.FC = () => {
           
           // Attempt to recover the corrupted lesson
           try {
+            // Use activeChapterId from store as the source of truth if lesson data is corrupted
+            const targetChapterId = currentLesson?.chapterId || store.activeChapterId;
+            const currentUnit = activeCourse?.units.find(u => u.chapters.some(c => c.id === targetChapterId));
+            const currentChapter = currentUnit?.chapters.find(c => c.id === targetChapterId);
+            
             const recoveryResult = await storageRecovery.recoverLessonContent(
               currentLesson,
-              currentLesson.chapterId,
-              currentLesson.type
+              activeCourse?.topic || 'Unknown Topic',
+              currentChapter?.title || 'Unknown Chapter'
             );
             
             if (recoveryResult.success && recoveryResult.recoveredData) {
               console.log('Successfully recovered lesson content');
-              // Update the current lesson with recovered data
-              store.setLessonContent(recoveryResult.recoveredData);
+              // Update the current lesson with recovered data and ensure chapterId is set
+              store.setLessonContent({
+                ...recoveryResult.recoveredData,
+                chapterId: targetChapterId || recoveryResult.recoveredData.chapterId
+              });
             } else {
               console.error('Failed to recover lesson:', recoveryResult.error);
               setAppState(AppState.ROADMAP);
@@ -120,10 +130,13 @@ export const Lesson: React.FC = () => {
     
     const handleRecoveryAttempt = async () => {
       try {
+        const currentUnit = activeCourse?.units.find(u => u.chapters.some(c => c.id === currentLesson?.chapterId));
+        const currentChapter = currentUnit?.chapters.find(c => c.id === currentLesson?.chapterId);
+
         const recoveryResult = await storageRecovery.recoverLessonContent(
           currentLesson,
-          currentLesson.chapterId,
-          currentLesson.type
+          activeCourse?.topic || 'Unknown Topic',
+          currentChapter?.title || 'Unknown Chapter'
         );
         
         if (recoveryResult.success && recoveryResult.recoveredData) {
@@ -143,15 +156,15 @@ export const Lesson: React.FC = () => {
         <div className="text-red-500 mb-4">
           <AlertCircle className="w-16 h-16 mx-auto" />
         </div>
-        <h2 className="text-2xl font-bold mb-4">Lesson Error</h2>
-        <p className="text-gray-600 mb-6">This lesson appears to be incomplete or corrupted.</p>
+        <h2 className="text-2xl font-bold mb-4">{t('lesson.error')}</h2>
+        <p className="text-gray-600 mb-6">{t('lesson.corrupted')}</p>
         <div className="flex gap-4">
           <Button onClick={handleRecoveryAttempt} variant="secondary">
             <RefreshCw className="w-4 h-4 mr-2" />
-            Try Recovery
+            {t('lesson.tryRecovery')}
           </Button>
           <Button onClick={() => setAppState(AppState.ROADMAP)}>
-            Return to Roadmap
+            {t('lesson.returnRoadmap')}
           </Button>
         </div>
       </div>
@@ -166,10 +179,10 @@ export const Lesson: React.FC = () => {
         <div className="text-red-500 mb-4">
           <AlertCircle className="w-16 h-16 mx-auto" />
         </div>
-        <h2 className="text-2xl font-bold mb-4">Question Error</h2>
-        <p className="text-gray-600 mb-6">The current question could not be loaded. Please return to the roadmap.</p>
+        <h2 className="text-2xl font-bold mb-4">{t('lesson.questionError')}</h2>
+        <p className="text-gray-600 mb-6">{t('lesson.questionLoadError')}</p>
         <Button onClick={() => setAppState(AppState.ROADMAP)}>
-          Return to Roadmap
+          {t('lesson.returnRoadmap')}
         </Button>
       </div>
     );
@@ -184,10 +197,10 @@ export const Lesson: React.FC = () => {
         <div className="text-red-500 mb-4">
           <AlertCircle className="w-16 h-16 mx-auto" />
         </div>
-        <h2 className="text-2xl font-bold mb-4">Question Error</h2>
-        <p className="text-gray-600 mb-6">The current question appears to be corrupted.</p>
+        <h2 className="text-2xl font-bold mb-4">{t('lesson.questionError')}</h2>
+        <p className="text-gray-600 mb-6">{t('lesson.questionCorrupted')}</p>
         <Button onClick={() => setAppState(AppState.ROADMAP)}>
-          Return to Roadmap
+          {t('lesson.returnRoadmap')}
         </Button>
       </div>
     );
@@ -326,14 +339,14 @@ export const Lesson: React.FC = () => {
      return (
         <div className="min-h-screen flex flex-col p-6 items-center justify-center text-center max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
            <h2 className="text-2xl font-black text-blue-600 mb-6 uppercase tracking-wider">
-              {currentLesson.type === 'interactive' ? "Interactive Module" : "Knowledge Download"}
+              {currentLesson.type === 'interactive' ? t('lesson.interactiveModule') : t('lesson.knowledgeDownload')}
            </h2>
            <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl mb-12 shadow-xl border border-gray-200 dark:border-gray-600">
              <p className="text-lg text-gray-900 dark:text-gray-100 leading-relaxed font-medium">
                {currentLesson.intro}
              </p>
            </div>
-           <Button fullWidth size="lg" onClick={startActualLesson} className="shadow-lg shadow-blue-500/30">Start Session</Button>
+           <Button fullWidth size="lg" onClick={startActualLesson} className="shadow-lg shadow-blue-500/30">{t('lesson.startSession')}</Button>
         </div>
      );
   }
@@ -359,7 +372,7 @@ export const Lesson: React.FC = () => {
                  <div className="w-32 h-32 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl border border-green-200">
                     <CheckCircle className="w-16 h-16 text-green-600" />
                  </div>
-                 <h1 className="text-4xl font-black text-gray-900 dark:text-gray-100 mb-2 tracking-tight">COMPLETE</h1>
+                 <h1 className="text-4xl font-black text-gray-900 dark:text-gray-100 mb-2 tracking-tight">{t('lesson.complete')}</h1>
                  <p className="text-xl text-gravity-success font-bold">+{10 + (3 * 5)} XP</p>
               </div>
 
@@ -377,7 +390,7 @@ export const Lesson: React.FC = () => {
                      }
                    }}
                  >
-                    <LayoutDashboard className="w-5 h-5 mr-2" /> Return to Map
+                    <LayoutDashboard className="w-5 h-5 mr-2" /> {t('lesson.returnMap')}
                  </Button>
               </div>
           </div>
@@ -404,11 +417,11 @@ export const Lesson: React.FC = () => {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-32">
+      <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-48">
         <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-6 mt-4 uppercase tracking-widest">
-          {question.type === 'fill-blank' && 'Input Answer'}
-          {question.type === 'true-false' && 'True or False'}
-          {question.type === 'multiple-choice' && 'Select One'}
+          {question.type === 'fill-blank' && t('lesson.inputAnswer')}
+          {question.type === 'true-false' && t('lesson.trueFalse')}
+          {question.type === 'multiple-choice' && t('lesson.selectOne')}
         </h2>
         
         <div className="mb-12 text-2xl text-gray-900 dark:text-gray-100 font-medium leading-relaxed">
@@ -422,14 +435,14 @@ export const Lesson: React.FC = () => {
                   type="text"
                   value={textAnswer}
                   onChange={(e) => setTextAnswer(e.target.value)}
-                  placeholder="Type here..."
+                  placeholder={t('lesson.typeHere')}
                   className="w-full p-6 text-xl bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-2xl focus:border-blue-500 focus:outline-none transition-all"
                   disabled={status !== 'idle'}
                   autoFocus
                 />
              </div>
           ) : question.type === 'true-false' ? (
-            ['True', 'False'].map((option, idx) => (
+            [t('lesson.true'), t('lesson.false')].map((option, idx) => (
               <div 
                 key={idx}
                 onClick={() => status === 'idle' && setSelectedOption(option)}
@@ -478,15 +491,15 @@ export const Lesson: React.FC = () => {
       </div>
 
       <div className={`
-        fixed bottom-0 left-0 right-0 border-t border-gravity-border-light dark:border-gravity-border-dark p-6 transition-all transform duration-300 ease-out z-30
+        absolute bottom-0 left-0 right-0 border-t border-gravity-border-light dark:border-gravity-border-dark p-6 transition-all transform duration-300 ease-out z-[100] shadow-[0_-8px_30px_rgb(0,0,0,0.12)]
         ${status === 'idle' ? 'bg-gravity-light dark:bg-gravity-dark' : ''}
-        ${status === 'correct' ? 'bg-gravity-success/50' : ''}
-        ${status === 'wrong' ? 'bg-gravity-danger/50' : ''}
+        ${status === 'correct' ? 'bg-[#F0FDF4] dark:bg-[#052c16] border-t-4 border-green-500' : ''}
+        ${status === 'wrong' ? 'bg-[#FEF2F2] dark:bg-[#450a0a] border-t-4 border-red-500' : ''}
       `}>
         <div className="max-w-2xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           
           {status === 'idle' && (
-             <Button fullWidth size="lg" disabled={question.type === 'fill-blank' ? !textAnswer : !selectedOption} onClick={handleCheck}>Check Answer</Button>
+             <Button fullWidth size="lg" disabled={question.type === 'fill-blank' ? !textAnswer : !selectedOption} onClick={handleCheck}>{t('lesson.checkAnswer')}</Button>
           )}
 
           {status === 'correct' && (
@@ -494,7 +507,7 @@ export const Lesson: React.FC = () => {
               <div className="flex items-start gap-4 self-start md:self-center flex-1">
                 <div className="bg-gravity-success text-white rounded-full p-2 shrink-0"><CheckCircle className="w-8 h-8" /></div>
                 <div className="flex-1">
-                  <div className="font-black text-gravity-success text-xl uppercase tracking-wider mb-1">Correct</div>
+                  <div className="font-black text-gravity-success text-xl uppercase tracking-wider mb-1">{t('lesson.correct')}</div>
                   {question.explanation && (
                     <div className="text-gray-900 dark:text-gray-100 text-sm mt-2 leading-relaxed">
                       {question.explanation}
@@ -502,7 +515,7 @@ export const Lesson: React.FC = () => {
                   )}
                 </div>
               </div>
-              <Button onClick={handleNext} className="w-full md:w-auto bg-gravity-success text-white hover:bg-green-600 border-transparent shadow-lg">Continue</Button>
+              <Button onClick={handleNext} className="w-full md:w-auto bg-gravity-success text-white hover:bg-green-600 border-transparent shadow-lg">{t('common.continue')}</Button>
             </>
           )}
 
@@ -511,8 +524,8 @@ export const Lesson: React.FC = () => {
               <div className="flex items-start gap-4 self-start md:self-center w-full flex-1">
                  <div className="bg-gravity-danger text-white rounded-full p-2 shrink-0"><AlertCircle className="w-8 h-8" /></div>
                  <div className="flex-1">
-                   <div className="font-black text-gravity-danger text-xl uppercase tracking-wider mb-1">Incorrect</div>
-                   <div className="text-gray-900 dark:text-gray-100 font-bold text-sm">Correct Answer: {question.correctAnswer}</div>
+                   <div className="font-black text-gravity-danger text-xl uppercase tracking-wider mb-1">{t('lesson.incorrect')}</div>
+                   <div className="text-gray-900 dark:text-gray-100 font-bold text-sm">{t('lesson.correctAnswer')} {question.correctAnswer}</div>
                    {question.explanation && (
                      <div className="text-gray-900 dark:text-gray-100 text-sm mt-2 leading-relaxed">
                        {question.explanation}
@@ -523,16 +536,16 @@ export const Lesson: React.FC = () => {
                      <div className="mt-3 p-3 bg-gravity-blue/10 border border-gravity-blue/20 rounded-xl flex items-start gap-2">
                        <BookOpen className="w-4 h-4 text-gravity-blue shrink-0 mt-0.5" />
                        <div className="text-sm">
-                         <span className="text-gravity-blue font-medium">Tip:</span>
+                         <span className="text-gravity-blue font-medium">{t('lesson.tip')}</span>
                          <span className="text-gray-700 dark:text-gray-300 ml-1">
-                           Having trouble? Check the unit&apos;s reference materials for additional learning resources.
+                           {t('lesson.tipDescription')}
                          </span>
                        </div>
                      </div>
                    )}
                  </div>
               </div>
-              <Button onClick={handleNext} className="w-full md:w-auto bg-gravity-danger text-white hover:bg-red-600 border-transparent shadow-lg">Continue</Button>
+              <Button onClick={handleNext} className="w-full md:w-auto bg-gravity-danger text-white hover:bg-red-600 border-transparent shadow-lg">{t('common.continue')}</Button>
             </>
           )}
         </div>

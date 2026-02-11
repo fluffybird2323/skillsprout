@@ -1,0 +1,264 @@
+export default {
+  settings: {
+    title: "设置",
+    theme: "主题",
+    language: "语言",
+    install: "安装应用",
+    close: "关闭",
+    iosInstall: "要安装此应用，请打开分享菜单并点击“添加到主屏幕”。",
+    installInstructions: "要安装此应用，请打开分享菜单并点击“添加到主屏幕”。"
+  },
+  theme: {
+    light: "浅色",
+    dark: "深色",
+    system: "系统"
+  },
+  auth: {
+    signIn: "登录",
+    signOut: "退出登录",
+    welcomeBack: "欢迎回来",
+    createAccount: "创建账户",
+    fullName: "姓名",
+    fullNamePlaceholder: "张三",
+    chooseAvatar: "选择你的头像",
+    emailAddress: "电子邮箱",
+    emailPlaceholder: "name@example.com",
+    password: "密码",
+    dontHaveAccount: "还没有账号？",
+    signUp: "注册",
+    alreadyHaveAccount: "已有账号？",
+    failed: "身份验证失败"
+  },
+  common: {
+    loading: "加载中...",
+    initializing: "正在初始化协议",
+    error: "错误",
+    retry: "重试",
+    cancel: "取消",
+    continue: "继续",
+    back: "返回",
+    delete: "删除",
+    anonymous: "匿名",
+    done: "完成",
+    tryAgain: "重试",
+    brand: "MANABU"
+  },
+  error: {
+    systemFailure: "系统故障",
+    criticalError: "神经矩阵中检测到严重错误。应用程序状态已不同步。",
+    rebootSystem: "重启系统",
+    hardReset: "硬重置（清除数据）",
+    network: "网络错误。请检查您的连接。",
+    timeout: "请求超时。请重试。",
+    serviceUnavailable: "服务暂时不可用。请稍后再试。",
+    gateway: "网关错误。服务遇到问题。",
+    gatewayTimeout: "网关超时。请求处理时间过长。",
+    unknown: "未知错误",
+    parseFailed: "解析 AI 响应失败。神经链路返回了损坏的数据。",
+    requestTimeout: "请求超时 - 请重试"
+  },
+  interactive: {
+    task: "互动任务",
+    success: "成功",
+    simulation: {
+      instruction: "调整滑块以找到正确的值. 绿色区域表示正确范围。",
+      submit: "完美！提交",
+      check: "检查答案",
+      keepAdjusting: "继续调整...",
+      hint: "在每个滑块上寻找绿色区域",
+      slider: {
+        adjustToward: "尝试向 {{target}} {{unit}} 调整",
+        target: "目标：{{target}} {{unit}} (±{{tolerance}} {{unit}})",
+        range: {
+          correct: "正确范围",
+          close: "接近目标",
+          adjust: "调整数值"
+        },
+        sr: {
+          correct: "正确！{{label}} 已设置为 {{value}} {{unit}}",
+          close: "正在接近。当前值：{{value}} {{unit}}",
+          current: "当前值：{{value}} {{unit}}。目标是 {{target}} {{unit}}"
+        }
+      }
+    },
+    sorting: {
+      incorrect: "排序不正确。",
+      check: "检查顺序"
+    },
+    imageEditor: {
+      upload: "点击上传",
+      error: "生成图像时出错。"
+    },
+    defaultInstruction: "完成互动练习",
+    defaultFeedback: "做得好！"
+  },
+  reference: {
+    title: "参考资料",
+    optionalLabel: "可选：",
+    optionalNotice: "这些资料由 AI 精选，旨在帮助您深入了解该主题。",
+    finding: "正在为您寻找最佳资源...",
+    notFound: "找不到此单元的相关参考资料。",
+    error: "生成参考资料失败。",
+    generate: "生成参考资料",
+    refresh: "刷新",
+    resourcesFound: "找到 {{count}} 个资源",
+    resourcesFound_plural: "找到 {{count}} 个资源",
+    noReferences: "尚无参考资料",
+    generateDescription: "生成精选参考资料，以补充您在本单元的学习。",
+    verified: "已验证 {{date}}",
+    types: {
+      video: "视频",
+      documentation: "文档",
+      tutorial: "教程",
+      interactive: "互动",
+      article: "文章"
+    }
+  },
+  review: {
+    intro: "是时候巩固记忆了！复习这些概念以保持你的连胜。"
+  },
+  suggestions: {
+    advanced: "高级概念",
+    practical: "实际应用",
+    mastery: "掌握复习"
+  },
+  loader: {
+    initializing: "正在加载课程...",
+    searching: "正在寻找上下文...",
+    searchingContext: "正在寻找现实世界的背景...",
+    generating: "正在创建课程...",
+    finalizing: "快好了...",
+    complete: "准备就绪！",
+    failed: "失败",
+    timeout: "超时",
+    failedMessage: "加载课程失败",
+    timeoutMessage: "请求超时",
+    elapsed: "已耗时 {{seconds}} 秒"
+  },
+  onboarding: {
+    newCourse: "新课程",
+    startLearning: "开始学习",
+    subtitle: "你今天想学什么？AI 将设计你的旅程。",
+    placeholder: "例如：量子计算、React.js...",
+    generate: "生成课程",
+    constructing: "正在构建...",
+    signInToStart: "登录以开始学习",
+    generateNewCourse: "生成新课程",
+    casual: "休闲",
+    serious: "认真",
+    obsessed: "着迷",
+    categories: {
+      science: "科学",
+      arts: "艺术",
+      code: "代码"
+    },
+    error: "糟糕！AI 出了点小状况。请重试。"
+  },
+  explore: {
+    title: "探索课程",
+    discovery: "发现",
+    subtitle: "了解社区正在学习的内容。",
+    searchPlaceholder: "搜索主题（例如：摄影、编程...）",
+    scanning: "正在扫描多元宇宙...",
+    units: "单元",
+    communityChoice: "社区选择",
+    startLearning: "开始学习",
+    noCourses: "未找到课程",
+    noCoursesSubtitle: "尝试不同的搜索，或成为第一个生成此课程的人！",
+    generateNow: "立即生成",
+    backToCourse: "返回我的课程"
+  },
+  lesson: {
+    fallback: {
+      intro: "让我们探索 {{chapter}} 并测试你对关键概念的理解。",
+      defaultIntro: "让我们来学习关于 {{topic}} 的知识。",
+      question1: "{{chapter}} 的主要概念是什么？",
+      question2: "{{topic}} 的关键原则是 ___。",
+      explanation1: "这个问题有助于评估对 {{chapter}} 的理解。",
+      explanation2: "这测试了对基本概念的记忆。"
+    },
+    error: "课程错误",
+    corrupted: "本课似乎不完整或已损坏。",
+    tryRecovery: "尝试恢复",
+    returnRoadmap: "返回路线图",
+    questionError: "问题错误",
+    questionLoadError: "无法加载当前问题。请返回路线图。",
+    questionCorrupted: "当前问题似乎已损坏。",
+    interactiveModule: "互动模块",
+    knowledgeDownload: "知识下载",
+    startSession: "开始课程",
+    complete: "已完成",
+    returnMap: "返回地图",
+    inputAnswer: "输入答案",
+    trueFalse: "判断对错",
+    selectOne: "选择一个",
+    typeHere: "在此输入...",
+    true: "正确",
+    false: "错误",
+    checkAnswer: "检查答案",
+    correct: "正确",
+    incorrect: "错误",
+    correctAnswer: "正确答案：",
+    tip: "提示：",
+    tipDescription: "遇到困难？查看单元的参考资料以获取更多学习资源。"
+  },
+  roadmap: {
+    signOutConfirm: "你确定要退出吗？你的本地进度将被保存，但同步将停止。",
+    shareTitle: "Manabu 课程",
+    shareText: "来看看这个关于 {{topic}} 的课程吧！",
+    linkCopied: "链接已复制到剪贴板！",
+    navigation: "导航",
+    explore: "探索",
+    activeTracks: "当前轨道",
+    addTrack: "添加轨道",
+    curriculumPath: "课程路径",
+    shareCourse: "分享课程",
+    review: "复习",
+    reviewExercise: "复习练习",
+    editMode: "编辑模式已激活",
+    deleteTrack: "删除轨道",
+    deleteTrackTooltip: "删除学习路径",
+    unit: "单元",
+    referenceMaterials: "参考资料",
+    extending: "正在扩展...",
+    extendPath: "扩展路径",
+    thinking: "正在思考...",
+    whereNext: "下一步去哪？",
+    customTopicPlaceholder: "或输入自定义主题...",
+    deletePathTitle: "删除路径？",
+    deletePathConfirm: "你确定要删除“{{topic}}”学习路径吗？此操作无法撤销。",
+    checkingCache: "正在检查保存的内容...",
+    loadingCache: "正在从缓存加载...",
+    generatingContent: "正在生成个性化内容...",
+    almostReady: "快好了...",
+    retrying: "正在重试...",
+    rateLimit: "达到速率限制。请等待几分钟后再试。",
+    networkError: "网络错误。请检查您的连接。",
+    failedLoad: "经过多次尝试后仍无法加载课程",
+    takingLonger: "比平时花的时间更长...",
+    unexpectedError: "发生意外错误。请重试。",
+    failedGenerateUnit: "生成单元失败。",
+    xp: "XP: {{count}}",
+    streak: "🔥 {{count}}",
+    hearts: "❤️ {{count}}"
+  },
+  subjectiveModal: {
+    title: "无可用参考资料",
+    subtitle: "这是一个主观或个人发展的主题",
+    description: "像“{{topic}}”这样的主题是高度个人化和主观的。我们建议通过互动测验和自我反思练习来学习，而不是依靠外部参考资料，这能帮助你发现最适合自己的方法。",
+    whyNoRefs: "为什么没有参考资料？",
+    reason1: "个人发展策略因人而异",
+    reason2: "对于这些主题，亲身实践比阅读更有效",
+    reason3: "通过测验进行自我发现能带来更好的理解",
+    exploreExternal: "仍然想探索外部资源？你可以在 Google 上搜索有关此主题的文章和研究。",
+    continueLearning: "继续学习",
+    searchGoogle: "Google 搜索"
+  },
+  pwa: {
+    installTitle: "安装 Manabu",
+    iosInstructions: "在您的 iPhone 上安装此应用：点击 {{icon}}，然后点击“添加到主屏幕”。",
+    androidInstructions: "安装该应用以获得更好的体验，支持离线访问和更快的加载速度。",
+    install: "安装",
+    notNow: "暂不安装"
+  }
+};

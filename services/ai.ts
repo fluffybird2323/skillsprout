@@ -1,11 +1,17 @@
 import { Course, Unit, LessonContent, CourseDepth, UnitReferences, ReferenceMaterial } from "../types";
 import { withRetry } from "../utils/aiHelpers";
+import i18n from '../lib/i18n';
 
 // Support both local development and production Cloud Function/Run deployments
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT || '/api/ai';
 
 async function apiCall(action: string, payload: any, retryCount = 0) {
   try {
+    // Inject locale into payload if not present
+    if (payload && typeof payload === 'object') {
+      payload.locale = i18n.language;
+    }
+
     // Add timeout to fetch request
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
@@ -32,11 +38,11 @@ async function apiCall(action: string, payload: any, retryCount = 0) {
       
       // Handle specific error types
       if (response.status === 503) {
-        throw new Error('Service temporarily unavailable. Please try again.');
+        throw new Error(i18n.t('error.serviceUnavailable'));
       } else if (response.status === 502) {
-        throw new Error('Gateway error. The service is experiencing issues.');
+        throw new Error(i18n.t('error.gateway'));
       } else if (response.status === 504) {
-        throw new Error('Gateway timeout. The request took too long to process.');
+        throw new Error(i18n.t('error.gatewayTimeout'));
       }
       
       throw new Error(errorData.error || `API Request Failed: ${response.status}`);
@@ -46,12 +52,12 @@ async function apiCall(action: string, payload: any, retryCount = 0) {
   } catch (error: any) {
     // Handle network errors
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('Network error. Please check your connection.');
+      throw new Error(i18n.t('error.network'));
     }
     
     // Handle abort errors (timeout)
     if (error.name === 'AbortError') {
-      throw new Error('Request timed out. Please try again.');
+      throw new Error(i18n.t('error.timeout'));
     }
     
     // Re-throw the error to be handled by withRetry
@@ -95,7 +101,11 @@ export async function generatePathSuggestions(topic: string, history: string[]):
     return data.suggestions || [];
   } catch (error) {
     console.error("Suggestion error", error);
-    return ["Advanced Concepts", "Practical Application", "Mastery Review"];
+    return [
+      i18n.t('suggestions.advanced'),
+      i18n.t('suggestions.practical'),
+      i18n.t('suggestions.mastery')
+    ];
   }
 }
 

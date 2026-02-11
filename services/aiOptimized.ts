@@ -1,6 +1,7 @@
 import { Course, Unit, LessonContent, CourseDepth, UnitReferences, ReferenceMaterial } from "../types";
 import { withRetry } from "../utils/aiHelpers";
 import { buildSearchContext, formatSearchContext, hasRelevantResults } from "./webSearchMinimal";
+import i18n from '../lib/i18n';
 
 // Support both local development and production Cloud Function/Run deployments
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT || '/api/ai';
@@ -18,7 +19,7 @@ export async function generateLessonOptimized(
   // Phase 1: Pre-search (lightweight, frontend)
   let searchContext = null;
   try {
-    onPhaseUpdate?.('searching', 'Searching for real-world context...');
+    onPhaseUpdate?.('searching', i18n.t('loader.searchingContext'));
     searchContext = await buildSearchContext(topic, chapterTitle);
   } catch (error) {
     console.warn('Pre-search failed, continuing without context:', error);
@@ -29,6 +30,7 @@ export async function generateLessonOptimized(
     topic,
     chapterTitle,
     lessonType,
+    locale: i18n.language,
     context: {
       category: detectTopicCategory(topic, chapterTitle),
       template: getLessonTemplate(topic, chapterTitle),
@@ -61,24 +63,24 @@ async function generateFallbackLesson(topic: string, chapterTitle: string): Prom
     {
       id: `fallback-1`,
       type: 'multiple-choice' as const,
-      question: `What is the main concept of ${chapterTitle}?`,
+      question: i18n.t('lesson.fallback.question1', { chapter: chapterTitle }),
       options: ['Option A', 'Option B', 'Option C', 'Option D'],
       correctAnswer: 'Option A',
-      explanation: `This question helps assess understanding of ${chapterTitle}.`
+      explanation: i18n.t('lesson.fallback.explanation1', { chapter: chapterTitle })
     },
     {
       id: `fallback-2`,
       type: 'fill-blank' as const,
-      question: `The key principle of ${topic} is ___.`,
+      question: i18n.t('lesson.fallback.question2', { topic }),
       correctAnswer: 'understanding',
-      explanation: `This tests recall of fundamental concepts.`
+      explanation: i18n.t('lesson.fallback.explanation2')
     }
   ];
 
   return {
     chapterId: '',
     type: 'quiz',
-    intro: `Let's explore ${chapterTitle} and test your understanding of key concepts.`,
+    intro: i18n.t('lesson.fallback.intro', { chapter: chapterTitle }),
     questions
   };
 }
@@ -90,7 +92,7 @@ function mapToLessonContent(data: any, lessonType: string): LessonContent {
   const baseContent = {
     chapterId: '',
     type: lessonType as any,
-    intro: data.intro || `Let's learn about ${data.chapterTitle || 'this topic'}.`
+    intro: data.intro || i18n.t('lesson.fallback.defaultIntro', { topic: data.chapterTitle || 'this topic' })
   };
 
   if (lessonType === 'quiz') {
@@ -108,8 +110,8 @@ function mapToLessonContent(data: any, lessonType: string): LessonContent {
       ...baseContent,
       interactiveConfig: data.interactiveConfig || {
         type: 'simulation',
-        instruction: 'Complete the interactive exercise',
-        feedback: 'Great job!'
+        instruction: i18n.t('interactive.defaultInstruction'),
+        feedback: i18n.t('interactive.defaultFeedback')
       },
       questions: data.questions?.map((q: any, idx: number) => ({
         ...q,
@@ -158,7 +160,7 @@ async function apiCall(action: string, payload: any, retryCount = 0): Promise<an
   } catch (error: any) {
     // Minimal error handling - just surface the issue
     if (error.name === 'AbortError') {
-      throw new Error('Request timeout - please try again');
+      throw new Error(i18n.t('error.requestTimeout'));
     }
     throw error;
   }

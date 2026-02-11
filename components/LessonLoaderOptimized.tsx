@@ -2,22 +2,24 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Loader2, RefreshCw, X, Zap, AlertTriangle } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { AppState, LoadingState } from '../types';
+import { useTranslation } from 'react-i18next';
 
 export function useLessonLoader() {
   const store = useStore();
+  const { t } = useTranslation();
 
   const initializeLoading = useCallback((chapterTitle: string) => {
     store.setLoadingState({
       phase: 'initializing',
       progress: 0,
-      message: 'Loading lesson...',
+      message: t('loader.initializing'),
       chapterTitle,
       chapterId: null,
       startTime: Date.now(),
       retryCount: 0,
       isCached: false,
     });
-  }, [store]);
+  }, [store, t]);
 
   const updatePhase = useCallback((phase: LoadingState['phase'], message?: string) => {
     const state = store.loadingState;
@@ -64,10 +66,10 @@ export function useLessonLoader() {
       ...state,
       retryCount: newRetryCount,
       phase: 'generating',
-      message: 'Retrying...',
+      message: t('roadmap.retrying'),
     });
     return newRetryCount;
-  }, [store]);
+  }, [store, t]);
 
   return {
     loadingState: store.loadingState,
@@ -83,22 +85,22 @@ interface LessonLoaderProps {
   onCancel: () => void;
 }
 
-// Simplified phases - only essential states
-const PHASE_MESSAGES: Record<LoadingState['phase'], string> = {
-  'initializing': 'Loading...',
-  'searching': 'Searching for context...',
-  'checking-cache': 'Loading...',
-  'generating': 'Creating lesson...',
-  'finalizing': 'Almost ready...',
-  'complete': 'Ready!',
-  'error': 'Failed',
-  'timeout': 'Timeout',
-};
-
 // Ultra-lightweight loader component
 export const LessonLoader: React.FC<LessonLoaderProps> = ({ onRetry, onCancel }) => {
   const { loadingState } = useStore();
+  const { t } = useTranslation();
   const [elapsedTime, setElapsedTime] = useState(0);
+
+  const phaseMessages: Record<LoadingState['phase'], string> = {
+    'initializing': t('loader.initializing'),
+    'searching': t('loader.searching'),
+    'checking-cache': t('common.loading'),
+    'generating': t('loader.generating'),
+    'finalizing': t('loader.finalizing'),
+    'complete': t('loader.complete'),
+    'error': t('loader.failed'),
+    'timeout': t('loader.timeout'),
+  };
 
   // Simple elapsed time tracking
   useEffect(() => {
@@ -136,7 +138,7 @@ export const LessonLoader: React.FC<LessonLoaderProps> = ({ onRetry, onCancel })
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-blue-500 dark:bg-gravity-blueDark rounded-full animate-pulse" />
             <span className="text-sm font-medium text-gray-700 dark:text-gravity-text-main-dark">
-              {PHASE_MESSAGES[loadingState.phase]}
+              {phaseMessages[loadingState.phase]}
             </span>
           </div>
           <button
@@ -169,7 +171,7 @@ export const LessonLoader: React.FC<LessonLoaderProps> = ({ onRetry, onCancel })
           <div className="mb-4">
             <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-3">
               <AlertTriangle className="w-4 h-4" />
-              <span className="text-sm font-medium">{loadingState.message || 'Failed to load lesson'}</span>
+              <span className="text-sm font-medium">{loadingState.message || t('loader.failedMessage')}</span>
             </div>
             <div className="flex gap-2">
               <button
@@ -177,13 +179,13 @@ export const LessonLoader: React.FC<LessonLoaderProps> = ({ onRetry, onCancel })
                 className="flex-1 bg-blue-500 dark:bg-gravity-blue text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
               >
                 <RefreshCw className="w-3 h-3" />
-                Retry
+                {t('common.retry')}
               </button>
               <button
                 onClick={onCancel}
                 className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -194,7 +196,7 @@ export const LessonLoader: React.FC<LessonLoaderProps> = ({ onRetry, onCancel })
           <div className="mb-4">
             <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-3">
               <AlertTriangle className="w-4 h-4" />
-              <span className="text-sm font-medium">Request timed out</span>
+              <span className="text-sm font-medium">{t('loader.timeoutMessage')}</span>
             </div>
             <div className="flex gap-2">
               <button
@@ -202,13 +204,13 @@ export const LessonLoader: React.FC<LessonLoaderProps> = ({ onRetry, onCancel })
                 className="flex-1 bg-blue-500 dark:bg-gravity-blue text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
               >
                 <RefreshCw className="w-3 h-3" />
-                Retry
+                {t('common.retry')}
               </button>
               <button
                 onClick={onCancel}
                 className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -218,7 +220,7 @@ export const LessonLoader: React.FC<LessonLoaderProps> = ({ onRetry, onCancel })
         {elapsedTime > 3 && loadingState.phase === 'generating' && (
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gravity-text-sub-dark">
             <Zap className="w-3 h-3" />
-            <span>{elapsedTime}s elapsed</span>
+            <span>{t('loader.elapsed', { seconds: elapsedTime })}</span>
           </div>
         )}
       </div>

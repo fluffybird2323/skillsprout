@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { Course, Unit, Chapter, AppState, LessonContent, ReviewItem, Theme, LoadingState, UnitReferences, User } from '../types';
 import { storageValidator } from '../utils/storageValidation';
 import { storageRecovery } from '../services/storageRecovery';
+import i18n from '../lib/i18n';
 
 interface GameState {
   appState: AppState;
@@ -268,7 +269,7 @@ export const useStore = create<GameState>()(
         const reviewLesson: LessonContent = {
           chapterId: 'review',
           type: 'quiz',
-          intro: "It's time to strengthen your memory! Review these concepts to keep your streak alive.",
+          intro: i18n.t('review.intro'),
           questions: dueItems.map(i => i.question)
         };
 

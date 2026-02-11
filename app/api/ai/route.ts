@@ -97,33 +97,35 @@ export async function POST(req: NextRequest) {
     
     const body = await req.json();
     const { action, payload } = body;
+    const locale = payload.locale || 'en';
+    const requireMultilingual = locale !== 'en';
 
     let result;
 
     switch (action) {
       case 'generateCourseOutline':
-        result = await handleGenerateCourseOutline(payload.topic, payload.depth);
+        result = await handleGenerateCourseOutline(payload.topic, payload.depth, locale, requireMultilingual);
         break;
       case 'generatePathSuggestions':
-        result = await handleGeneratePathSuggestions(payload.topic, payload.history);
+        result = await handleGeneratePathSuggestions(payload.topic, payload.history, locale, requireMultilingual);
         break;
       case 'generateUnit':
-        result = await handleGenerateUnit(payload.topic, payload.existingUnitCount, payload.focus);
+        result = await handleGenerateUnit(payload.topic, payload.existingUnitCount, payload.focus, locale, requireMultilingual);
         break;
       case 'generateLessonContent':
-        result = await handleGenerateLessonContent(payload.topic, payload.chapterTitle);
+        result = await handleGenerateLessonContent(payload.topic, payload.chapterTitle, locale, requireMultilingual);
         break;
       case 'generateLessonOptimized':
         // Route to appropriate handler based on lesson type
         const lessonType = payload.lessonType || 'quiz';
         if (lessonType === 'interactive') {
-          result = await handleGenerateInteractiveLesson(payload.topic, payload.chapterTitle);
+          result = await handleGenerateInteractiveLesson(payload.topic, payload.chapterTitle, locale, requireMultilingual);
         } else {
-          result = await handleGenerateLessonContent(payload.topic, payload.chapterTitle);
+          result = await handleGenerateLessonContent(payload.topic, payload.chapterTitle, locale, requireMultilingual);
         }
         break;
       case 'generateInteractiveLesson':
-        result = await handleGenerateInteractiveLesson(payload.topic, payload.chapterTitle);
+        result = await handleGenerateInteractiveLesson(payload.topic, payload.chapterTitle, locale, requireMultilingual);
         break;
       case 'searchWeb':
         result = await handleWebSearch(payload.query);
@@ -433,7 +435,8 @@ async function generateWithAI(
   systemInstruction: string = "You are a helpful AI assistant.",
   retryCount: number = 0,
   purpose?: ModelCallPurpose,
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
+  requireMultilingual: boolean = false
 ): Promise<any> {
   // Track this model call
   if (purpose && retryCount === 0) {
@@ -451,7 +454,7 @@ async function generateWithAI(
   try {
     // Use Groq (only)
     console.log(`[Model] Groq (random) | Purpose: ${purpose || 'untracked'}`);
-    const text = await generateWithGroq(prompt, systemInstruction, purpose);
+    const text = await generateWithGroq(prompt, systemInstruction, purpose, requireMultilingual);
 
     console.log(`[Model] Response: ${text.length} chars | Provider: groq | Purpose: ${purpose || 'untracked'}`);
 
@@ -465,7 +468,7 @@ async function generateWithAI(
     // Retry once with Groq if failed
     if (retryCount === 0) {
        console.warn(`[Model] Groq failed, retrying...`);
-       return generateWithAI(prompt, systemInstruction, 1, purpose, metadata);
+       return generateWithAI(prompt, systemInstruction, 1, purpose, metadata, requireMultilingual);
     }
 
     console.error(`[Model] Generation failed:`, error);
@@ -473,12 +476,16 @@ async function generateWithAI(
   }
 }
 
-async function handleGenerateCourseOutline(topic: string, depth: CourseDepth) {
+async function handleGenerateCourseOutline(topic: string, depth: CourseDepth, locale: string = 'en', requireMultilingual: boolean = false) {
   // Detect topic category for smarter curriculum design
   const category = detectTopicCategory(topic);
 
   let depthInstruction = "";
   let structureInstruction = "";
+  
+  const languageInstruction = locale !== 'en' 
+    ? `IMPORTANT: The user's locale is "${locale}". You MUST generate ALL content (titles, descriptions, etc.) in this language.` 
+    : '';
 
   switch (depth) {
     case 'casual':
@@ -502,6 +509,7 @@ async function handleGenerateCourseOutline(topic: string, depth: CourseDepth) {
 
 Context:
 ${depthInstruction}
+${languageInstruction}
 
 Topic Category: ${category}
 ${categoryGuidance}
@@ -542,7 +550,8 @@ Output Schema:
     "You are an expert curriculum designer who creates engaging, well-structured courses. Output strictly valid JSON.",
     0,
     'course-generation',
-    { topic }
+    { topic },
+    requireMultilingual
   );
 }
 
@@ -564,9 +573,13 @@ function getCategoryGuidance(category: TopicCategory): string {
   return guidance[category] || guidance.general;
 }
 
-async function handleGeneratePathSuggestions(topic: string, history: string[]) {
+async function handleGeneratePathSuggestions(topic: string, history: string[], locale: string = 'en', requireMultilingual: boolean = false) {
   const category = detectTopicCategory(topic);
   
+  const languageInstruction = locale !== 'en' 
+    ? `IMPORTANT: The user's locale is "${locale}". You MUST generate ALL content in this language.` 
+    : '';
+
   // Ground with DuckDuckGo to prevent hallucinations
   let context = "";
   try {
@@ -585,6 +598,7 @@ ${searchResults.map(r => `- ${r.title}: ${r.snippet}`).join('\n')}
 They completed: ${history.join(', ')}.
 
 ${context}
+${languageInstruction}
 
 Suggest 3 distinct, exciting next directions. These should be:
 - Specific and actionable (not generic)
@@ -597,14 +611,19 @@ Return ONLY valid JSON:
   "suggestions": ["Direction 1", "Direction 2", "Direction 3"]
 }`;
 
-  return generateWithAI(prompt, "You are a helpful AI assistant. Ground your response in reality.", 0, 'path-suggestions', { topic });
+  return generateWithAI(prompt, "You are a helpful AI assistant. Ground your response in reality.", 0, 'path-suggestions', { topic }, requireMultilingual);
 }
 
-async function handleGenerateUnit(topic: string, existingUnitCount: number, focus?: string) {
+async function handleGenerateUnit(topic: string, existingUnitCount: number, focus?: string, locale: string = 'en', requireMultilingual: boolean = false) {
   const category = detectTopicCategory(topic, focus);
+
+  const languageInstruction = locale !== 'en' 
+    ? `IMPORTANT: The user's locale is "${locale}". You MUST generate ALL content in this language.` 
+    : '';
 
   let prompt = `The user is learning "${topic}" (Category: ${category}). They've completed ${existingUnitCount} units.
 Create the NEXT Unit - more advanced than previous content.
+${languageInstruction}
 Chapters (3-6) should depend on complexity.`;
 
   if (focus) {
@@ -632,14 +651,18 @@ Return ONLY valid JSON:
   ]
 }`;
 
-  return generateWithAI(prompt, "You are a helpful AI assistant.", 0, 'unit-generation', { topic, focus });
+  return generateWithAI(prompt, "You are a helpful AI assistant.", 0, 'unit-generation', { topic, focus }, requireMultilingual);
 }
 
-async function handleGenerateLessonContent(topic: string, chapterTitle: string) {
+async function handleGenerateLessonContent(topic: string, chapterTitle: string, locale: string = 'en', requireMultilingual: boolean = false) {
   const category = detectTopicCategory(topic, chapterTitle);
   const template = getLessonTemplate(topic, chapterTitle);
   const questionCount = getQuestionCount(template);
   const questionTypes = selectQuestionTypes(template, questionCount);
+
+  const languageInstruction = locale !== 'en' 
+    ? `IMPORTANT: The user's locale is "${locale}". You MUST generate ALL content (intro, questions, options, explanations) in this language.` 
+    : '';
 
   // Try to get RAG context for enrichment
   let ragContext: RAGContext | null = null;
@@ -665,6 +688,7 @@ ${ragContext.facts.map(f => `- ${f}`).join('\n')}
 
   const prompt = `Create an engaging micro-lesson for "${chapterTitle}" (Topic: ${topic}, Category: ${category}).
 ${contextSection}
+${languageInstruction}
 
 Requirements:
 1. Use this intro (or improve slightly): "${intro}"
@@ -729,14 +753,19 @@ EXAMPLE (multiple-choice):
     `You are an expert educational content creator. Your goal is to create accurate, practical, and highly relevant lessons for the topic "${topic}". DO NOT hallucinate or bring in unrelated literary or historical facts. Focus strictly on what a modern learner needs to know about this specific topic. Output strictly valid JSON.`,
     0,
     'lesson-generation-quiz',
-    { topic, chapterTitle }
+    { topic, chapterTitle },
+    requireMultilingual
   );
 }
 
-async function handleGenerateInteractiveLesson(topic: string, chapterTitle: string) {
+async function handleGenerateInteractiveLesson(topic: string, chapterTitle: string, locale: string = 'en', requireMultilingual: boolean = false) {
   const category = detectTopicCategory(topic, chapterTitle);
   const template = getLessonTemplate(topic, chapterTitle);
   const widgetType = selectWidgetType(template, chapterTitle);
+
+  const languageInstruction = locale !== 'en' 
+    ? `IMPORTANT: The user's locale is "${locale}". You MUST generate ALL content (intro, instructions, feedback, questions) in this language.` 
+    : '';
 
   // Get RAG context for realistic scenarios
   let ragContext: RAGContext | null = null;
@@ -762,6 +791,7 @@ Facts: ${ragContext.facts.join('; ')}
 
   const prompt = `Create an INTERACTIVE lesson for "${chapterTitle}" (Topic: ${topic}, Category: ${category}).
 ${contextSection}
+${languageInstruction}
 
 Widget Type: ${widgetType}
 ${widgetInstructions}
@@ -844,7 +874,8 @@ CRITICAL: For quiz questions, the FIRST option MUST be the correct answer. No le
     `You are an expert in creating interactive educational experiences. Your goal is to create realistic, topic-focused scenarios for "${topic}". Avoid academic drift or unrelated historical/literary tangents. Output strictly valid JSON.`,
     0,
     'lesson-generation-interactive',
-    { topic, chapterTitle }
+    { topic, chapterTitle },
+    requireMultilingual
   );
 }
 

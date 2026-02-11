@@ -6,6 +6,7 @@ import confetti from 'canvas-confetti';
 import { editImageWithGemini } from '../../services/ai';
 import EnhancedSlider from './EnhancedSlider';
 import { CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface InteractiveStageProps {
   config: InteractiveWidget;
@@ -14,6 +15,7 @@ interface InteractiveStageProps {
 
 export const InteractiveStage: React.FC<InteractiveStageProps> = ({ config, onComplete }) => {
   const [status, setStatus] = useState<'active' | 'success'>('active');
+  const { t } = useTranslation();
 
   const handleSuccess = () => {
     setStatus('success');
@@ -36,7 +38,7 @@ export const InteractiveStage: React.FC<InteractiveStageProps> = ({ config, onCo
            {config.type === 'sorting' && <Shuffle className="w-6 h-6 text-gravity-accent" />}
            {config.type === 'canvas' && <PenTool className="w-6 h-6 text-gravity-success" />}
            {config.type === 'image-editor' && <Wand2 className="w-6 h-6 text-gravity-danger" />}
-           Interactive Task
+           {t('interactive.task')}
          </h2>
          <p className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark font-medium text-sm mt-2">{config.instruction}</p>
       </div>
@@ -51,10 +53,10 @@ export const InteractiveStage: React.FC<InteractiveStageProps> = ({ config, onCo
       {status === 'success' && (
         <div className="mt-6 shrink-0 animate-in slide-in-from-bottom duration-500">
            <div className="bg-gravity-success/10 border border-gravity-success text-gravity-success p-4 mb-4 rounded-xl">
-              <p className="font-bold uppercase tracking-wider text-xs mb-1">Success</p>
+              <p className="font-bold uppercase tracking-wider text-xs mb-1">{t('interactive.success')}</p>
               <p>{config.feedback}</p>
            </div>
-           <Button fullWidth variant="primary" onClick={onComplete}>Continue</Button>
+           <Button fullWidth variant="primary" onClick={onComplete}>{t('common.continue')}</Button>
         </div>
       )}
     </div>
@@ -65,6 +67,7 @@ const SimulationWidget = ({ config, onSuccess }: { config: InteractiveWidget, on
    const [values, setValues] = useState<Record<string, number>>({});
    const [submitted, setSubmitted] = useState(false);
    const [allCorrect, setAllCorrect] = useState(false);
+   const { t } = useTranslation();
 
    const handleChange = (label: string, val: number) => {
      setValues(prev => ({ ...prev, [label]: val }));
@@ -97,7 +100,7 @@ const SimulationWidget = ({ config, onSuccess }: { config: InteractiveWidget, on
      <div className="flex flex-col justify-center gap-8 max-w-lg mx-auto w-full py-4">
         <div className="text-center mb-4">
           <p className="text-sm text-gravity-text-sub-light dark:text-gravity-text-sub-dark">
-            Adjust the sliders to find the correct values. Green zones indicate correct ranges.
+            {t('interactive.simulation.instruction')}
           </p>
         </div>
         
@@ -122,18 +125,18 @@ const SimulationWidget = ({ config, onSuccess }: { config: InteractiveWidget, on
              {allCorrect ? (
                <span className="flex items-center gap-2">
                  <CheckCircle className="w-4 h-4" />
-                 Perfect! Submit
+                 {t('interactive.simulation.submit')}
                </span>
-             ) : "Check Answer"}
+             ) : t('interactive.simulation.check')}
            </Button>
           )}
           {submitted && (
             <div className="text-center">
               <div className="text-gravity-danger font-bold animate-pulse mb-2">
-                Keep adjusting...
+                {t('interactive.simulation.keepAdjusting')}
               </div>
               <div className="text-xs text-gravity-text-sub-light dark:text-gravity-text-sub-dark">
-                Look for the green zones on each slider
+                {t('interactive.simulation.hint')}
               </div>
             </div>
           )}
@@ -144,6 +147,7 @@ const SimulationWidget = ({ config, onSuccess }: { config: InteractiveWidget, on
 
 const SortingWidget = ({ config, onSuccess }: { config: InteractiveWidget, onSuccess: () => void }) => {
     const [items, setItems] = useState<string[]>([]);
+    const { t } = useTranslation();
 
     React.useEffect(() => {
        if (config.items) setItems([...config.items].sort(() => Math.random() - 0.5));
@@ -159,7 +163,7 @@ const SortingWidget = ({ config, onSuccess }: { config: InteractiveWidget, onSuc
 
     const check = () => {
        if (JSON.stringify(items) === JSON.stringify(config.items)) onSuccess();
-       else alert("Incorrect sequence.");
+       else alert(t('interactive.sorting.incorrect'));
     };
 
     return (
@@ -175,7 +179,7 @@ const SortingWidget = ({ config, onSuccess }: { config: InteractiveWidget, onSuc
                 </div>
              </div>
           ))}
-          <Button onClick={check} className="mt-4">Check Order</Button>
+          <Button onClick={check} className="mt-4">{t('interactive.sorting.check')}</Button>
        </div>
     );
 };
@@ -183,6 +187,7 @@ const SortingWidget = ({ config, onSuccess }: { config: InteractiveWidget, onSuc
 const CanvasWidget = ({ config, onSuccess }: { config: InteractiveWidget, onSuccess: () => void }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
+    const { t } = useTranslation();
 
     const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
        const canvas = canvasRef.current;
@@ -246,7 +251,7 @@ const CanvasWidget = ({ config, onSuccess }: { config: InteractiveWidget, onSucc
           </div>
           <div className="flex gap-4 w-full max-w-xs">
              <Button variant="outline" onClick={clear}><RefreshCcw className="w-5 h-5" /></Button>
-             <Button fullWidth onClick={onSuccess}>Done</Button>
+             <Button fullWidth onClick={onSuccess}>{t('common.done')}</Button>
           </div>
        </div>
     );
@@ -258,6 +263,7 @@ const ImageEditorWidget = ({ config, onSuccess }: { config: InteractiveWidget, o
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -280,7 +286,7 @@ const ImageEditorWidget = ({ config, onSuccess }: { config: InteractiveWidget, o
       const resultUrl = await editImageWithGemini(base64Data, mimeType, prompt);
       setGeneratedImage(resultUrl);
     } catch (error) {
-      alert("Error generating image.");
+      alert(t('interactive.imageEditor.error'));
     } finally {
       setLoading(false);
     }
@@ -292,7 +298,7 @@ const ImageEditorWidget = ({ config, onSuccess }: { config: InteractiveWidget, o
          {!image && (
            <div className="text-center p-4" onClick={() => fileInputRef.current?.click()}>
               <Upload className="w-12 h-12 text-gravity-text-sub-light dark:text-gravity-text-sub-dark mx-auto mb-2" />
-              <p className="font-bold cursor-pointer">Click to Upload</p>
+              <p className="font-bold cursor-pointer">{t('interactive.imageEditor.upload')}</p>
            </div>
          )}
          {image && !generatedImage && <img src={image} alt="Original" className="object-contain max-h-full w-full" />}
@@ -313,7 +319,7 @@ const ImageEditorWidget = ({ config, onSuccess }: { config: InteractiveWidget, o
                type="text" 
                value={prompt}
                onChange={(e) => setPrompt(e.target.value)}
-               placeholder="Edit prompt..."
+               placeholder={t('interactive.imageEditor.promptPlaceholder')}
                className="flex-1 p-3 bg-gravity-light dark:bg-black/20 border border-gravity-border-light dark:border-gravity-border-dark rounded-xl focus:border-gravity-blue focus:outline-none"
              />
              <Button onClick={handleEdit} disabled={!prompt || loading}><Wand2 className="w-5 h-5" /></Button>
@@ -321,8 +327,8 @@ const ImageEditorWidget = ({ config, onSuccess }: { config: InteractiveWidget, o
          )}
          {generatedImage && (
             <div className="flex gap-3">
-               <Button variant="outline" fullWidth onClick={() => setGeneratedImage(null)}>Retry</Button>
-               <Button variant="primary" fullWidth onClick={onSuccess}>Use This</Button>
+               <Button variant="outline" fullWidth onClick={() => setGeneratedImage(null)}>{t('common.retry')}</Button>
+               <Button variant="primary" fullWidth onClick={onSuccess}>{t('interactive.imageEditor.useThis')}</Button>
             </div>
          )}
       </div>

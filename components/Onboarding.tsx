@@ -4,12 +4,14 @@ import { Button } from './ui/Button';
 import { useStore } from '../store/useStore';
 import { generateCourseOutline } from '../services/ai';
 import { AppState, CourseDepth } from '../types';
+import { useTranslation } from 'react-i18next';
 
 export const Onboarding: React.FC = () => {
   const [topic, setTopic] = useState('');
   const [depth, setDepth] = useState<CourseDepth>('serious');
   const [loading, setLoading] = useState(false);
   const store = useStore();
+  const { t } = useTranslation();
   
   const isAdding = store.appState === AppState.ADD_COURSE;
 
@@ -57,7 +59,7 @@ export const Onboarding: React.FC = () => {
       console.error(error);
       setLoading(false);
       store.setAppState(isAdding ? AppState.ADD_COURSE : AppState.ONBOARDING);
-      alert("Oops! AI had a hiccup. Try again.");
+      alert(t('onboarding.error'));
     }
   };
   
@@ -79,11 +81,11 @@ export const Onboarding: React.FC = () => {
         
         {/* Header Section */}
         <div className="space-y-4">
-           <h1 className="text-5xl md:text-7xl font-black tracking-tight text-gravity-text-main-light dark:text-gravity-text-main-dark">
-             {isAdding ? "New Course" : "Start Learning"}
+           <h1 suppressHydrationWarning className="text-5xl md:text-7xl font-black tracking-tight text-gravity-text-main-light dark:text-gravity-text-main-dark">
+             {isAdding ? t('onboarding.newCourse') : t('onboarding.startLearning')}
            </h1>
-           <p className="text-xl text-gravity-text-sub-light dark:text-gravity-text-sub-dark font-light max-w-lg mx-auto">
-             What do you want to learn today? <br/>AI will design your journey.
+           <p suppressHydrationWarning className="text-xl text-gravity-text-sub-light dark:text-gravity-text-sub-dark font-light max-w-lg mx-auto">
+             {t('onboarding.subtitle')}
            </p>
         </div>
 
@@ -92,10 +94,11 @@ export const Onboarding: React.FC = () => {
           {/* Main Input */}
           <div className="relative group">
             <input
+              suppressHydrationWarning
               type="text"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g. Quantum Computing, React.js..."
+              placeholder={t('onboarding.placeholder')}
               className="w-full p-6 text-xl bg-transparent border-b-2 border-gravity-border-light dark:border-gravity-border-dark text-gravity-text-main-light dark:text-gravity-text-main-dark placeholder-gravity-text-sub-light/50 dark:placeholder-gravity-text-sub-dark/50 focus:outline-none focus:border-gravity-blue transition-all font-bold text-center tracking-tight"
               disabled={loading}
               autoFocus
@@ -118,7 +121,7 @@ export const Onboarding: React.FC = () => {
                    {d === 'casual' && <Coffee className="w-6 h-6" />}
                    {d === 'serious' && <Zap className="w-6 h-6" />}
                    {d === 'obsessed' && <Flame className="w-6 h-6" />}
-                   <span className="text-xs font-bold uppercase tracking-widest">{d}</span>
+                   <span suppressHydrationWarning className="text-xs font-bold uppercase tracking-widest">{t(`onboarding.${d}`)}</span>
                 </button>
              ))}
           </div>
@@ -133,18 +136,18 @@ export const Onboarding: React.FC = () => {
             className="h-16 text-lg rounded-full shadow-xl shadow-gravity-blue/20"
           >
             {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="animate-spin" /> Constructing...
+              <span suppressHydrationWarning className="flex items-center justify-center gap-2">
+                <Loader2 className="animate-spin" /> {t('onboarding.constructing')}
               </span>
             ) : (
-              <span className="flex items-center justify-center gap-2">
+              <span suppressHydrationWarning className="flex items-center justify-center gap-2">
                 {!store.user ? (
                   <>
-                    <UserIcon className="w-5 h-5" /> Sign In to Start Learning
+                    <UserIcon className="w-5 h-5" /> {t('onboarding.signInToStart')}
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-5 h-5" /> {isAdding ? "Generate New Course" : "Start Learning"}
+                    <Sparkles className="w-5 h-5" /> {isAdding ? t('onboarding.generateNewCourse') : t('onboarding.startLearning')}
                   </>
                 )}
               </span>
@@ -156,15 +159,15 @@ export const Onboarding: React.FC = () => {
         <div className="flex justify-center gap-8 opacity-40 grayscale hover:grayscale-0 transition-all duration-500">
            <div className="flex flex-col items-center gap-2">
              <div className="w-10 h-10 bg-gravity-surface-light dark:bg-gravity-surface-dark rounded-xl flex items-center justify-center text-xl shadow-sm">⚛️</div>
-             <span className="text-[10px] font-bold text-gravity-text-sub-light dark:text-gravity-text-sub-dark uppercase">Science</span>
+             <span suppressHydrationWarning className="text-[10px] font-bold text-gravity-text-sub-light dark:text-gravity-text-sub-dark uppercase">{t('onboarding.categories.science')}</span>
            </div>
            <div className="flex flex-col items-center gap-2">
              <div className="w-10 h-10 bg-gravity-surface-light dark:bg-gravity-surface-dark rounded-xl flex items-center justify-center text-xl shadow-sm">🎨</div>
-             <span className="text-[10px] font-bold text-gravity-text-sub-light dark:text-gravity-text-sub-dark uppercase">Arts</span>
+             <span suppressHydrationWarning className="text-[10px] font-bold text-gravity-text-sub-light dark:text-gravity-text-sub-dark uppercase">{t('onboarding.categories.arts')}</span>
            </div>
            <div className="flex flex-col items-center gap-2">
              <div className="w-10 h-10 bg-gravity-surface-light dark:bg-gravity-surface-dark rounded-xl flex items-center justify-center text-xl shadow-sm">💻</div>
-             <span className="text-[10px] font-bold text-gravity-text-sub-light dark:text-gravity-text-sub-dark uppercase">Code</span>
+             <span suppressHydrationWarning className="text-[10px] font-bold text-gravity-text-sub-light dark:text-gravity-text-sub-dark uppercase">{t('onboarding.categories.code')}</span>
            </div>
         </div>
       </div>

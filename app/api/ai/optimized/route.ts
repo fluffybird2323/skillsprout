@@ -8,7 +8,7 @@ import { generateWithGroq, calculateMaxTokens } from '../../../../services/groqC
 export async function POST(request: NextRequest) {
   let lessonType = 'quiz';
   try {
-    const { topic, chapterTitle, lessonType: requestLessonType, context } = await request.json();
+    const { topic, chapterTitle, lessonType: requestLessonType, context, locale } = await request.json();
     lessonType = requestLessonType || 'quiz';
 
     if (!topic || !chapterTitle) {
@@ -16,17 +16,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Single optimized prompt based on lesson type
-    const prompt = buildOptimizedPrompt(topic, chapterTitle, lessonType, context);
+    const prompt = buildOptimizedPrompt(topic, chapterTitle, lessonType, context, locale);
 
     let text: string;
 
     try {
       // Try Groq (primary)
-      console.log('[Optimized] Using Groq for lesson generation');
+      console.log(`[Optimized] Using Groq for lesson generation (Locale: ${locale || 'en'})`);
+      const requireMultilingual = locale && locale !== 'en';
+      
       text = await generateWithGroq(
         prompt,
         'You are an expert educational content creator. Output strictly valid JSON.',
-        `lesson-generation-${lessonType}` as any
+        `lesson-generation-${lessonType}` as any,
+        requireMultilingual
       );
     } catch (groqError) {
        console.error('[Optimized] Groq failed:', groqError);
@@ -49,10 +52,15 @@ export async function POST(request: NextRequest) {
 /**
  * Build optimized prompt - includes search context if available
  */
-function buildOptimizedPrompt(topic: string, chapterTitle: string, lessonType: string, context: any): string {
+function buildOptimizedPrompt(topic: string, chapterTitle: string, lessonType: string, context: any, locale: string = 'en'): string {
   const category = context?.category || 'general';
   const questionCount = context?.questionCount || 3;
   const searchContext = context?.searchContext || '';
+  
+  // Language instruction
+  const languageInstruction = locale && locale !== 'en' 
+    ? `IMPORTANT: The user's language is "${locale}". You MUST generate ALL content (questions, options, explanations, intro) in "${locale}". Do not output English unless the term is technical and commonly used in English.`
+    : '';
   
   // Include search context if we have relevant results
   const contextSection = searchContext && context?.hasRelevantResults ? `
@@ -64,6 +72,8 @@ Use this context to make the lesson more accurate and engaging.` : '';
   if (lessonType === 'quiz') {
     return `Create a quick quiz lesson for "${chapterTitle}" (Topic: ${topic}, Category: ${category}).
 ${contextSection}
+
+${languageInstruction}
 
 Generate exactly ${questionCount} questions with these types: multiple-choice, fill-blank, true-false.
 Make questions practical and engaging. Include clear explanations.
@@ -115,7 +125,7 @@ Return simple JSON:
   }
 
   // Default to quiz
-  return buildOptimizedPrompt(topic, chapterTitle, 'quiz', context);
+  return buildOptimizedPrompt(topic, chapterTitle, 'quiz', context, locale);
 }
 
 /**

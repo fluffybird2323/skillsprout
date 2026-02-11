@@ -3,6 +3,7 @@ import { X, BookOpen, ExternalLink, Video, FileText, Code, Lightbulb, Loader2, R
 import { ReferenceMaterial, UnitReferences, Unit } from '../types';
 import { Button } from './ui/Button';
 import { SubjectiveTopicModal } from './SubjectiveTopicModal';
+import { useTranslation } from 'react-i18next';
 
 interface ReferenceSectionProps {
   unit: Unit;
@@ -27,21 +28,6 @@ const getTypeIcon = (type: ReferenceMaterial['type']) => {
   }
 };
 
-const getTypeLabel = (type: ReferenceMaterial['type']) => {
-  switch (type) {
-    case 'video':
-      return 'Video';
-    case 'documentation':
-      return 'Docs';
-    case 'tutorial':
-      return 'Tutorial';
-    case 'interactive':
-      return 'Interactive';
-    default:
-      return 'Article';
-  }
-};
-
 export const ReferenceSection: React.FC<ReferenceSectionProps> = ({
   unit,
   topic,
@@ -53,6 +39,22 @@ export const ReferenceSection: React.FC<ReferenceSectionProps> = ({
   const [references, setReferences] = useState<UnitReferences | null>(unit.references || null);
   const [error, setError] = useState<string | null>(null);
   const [showSubjectiveModal, setShowSubjectiveModal] = useState(false);
+  const { t } = useTranslation();
+
+  const getTypeLabel = (type: ReferenceMaterial['type']) => {
+    switch (type) {
+      case 'video':
+        return t('reference.types.video');
+      case 'documentation':
+        return t('reference.types.documentation');
+      case 'tutorial':
+        return t('reference.types.tutorial');
+      case 'interactive':
+        return t('reference.types.interactive');
+      default:
+        return t('reference.types.article');
+    }
+  };
 
   useEffect(() => {
     if (unit.references) {
@@ -72,10 +74,10 @@ export const ReferenceSection: React.FC<ReferenceSectionProps> = ({
           setShowSubjectiveModal(true);
         }
       } else {
-        setError('Could not find relevant reference materials for this unit.');
+        setError(t('reference.notFound'));
       }
     } catch (e) {
-      setError('Failed to generate references. Please try again.');
+      setError(t('reference.error'));
     } finally {
       setIsLoading(false);
     }
@@ -104,7 +106,7 @@ export const ReferenceSection: React.FC<ReferenceSectionProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-black text-gravity-text-main-light dark:text-gravity-text-main-dark">
-                Reference Materials
+                {t('reference.title')}
               </h2>
               <p className="text-sm text-gravity-text-sub-light dark:text-gravity-text-sub-dark mt-1">
                 {unit.title}
@@ -124,7 +126,7 @@ export const ReferenceSection: React.FC<ReferenceSectionProps> = ({
           {/* Optional notice */}
           <div className="bg-gravity-blue/5 border border-gravity-blue/20 rounded-xl p-4 mb-6">
             <p className="text-sm text-gravity-text-sub-light dark:text-gravity-text-sub-dark">
-              <span className="font-bold text-gravity-blue">Optional:</span> These materials are supplementary resources to help deepen your understanding. They are not required to progress through the course.
+              <span className="font-bold text-gravity-blue">{t('reference.optionalLabel')}</span> {t('reference.optionalNotice')}
             </p>
           </div>
 
@@ -132,7 +134,7 @@ export const ReferenceSection: React.FC<ReferenceSectionProps> = ({
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-gravity-blue mb-4" />
               <p className="text-gravity-text-sub-light dark:text-gravity-text-sub-dark text-sm">
-                Finding relevant resources...
+                {t('reference.finding')}
               </p>
             </div>
           ) : error ? (
@@ -140,17 +142,17 @@ export const ReferenceSection: React.FC<ReferenceSectionProps> = ({
               <p className="text-gravity-danger mb-4">{error}</p>
               <Button onClick={handleGenerateReferences} variant="secondary">
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Try Again
+                {t('common.tryAgain')}
               </Button>
             </div>
           ) : references && references.shouldShowReferences === false ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Lightbulb className="w-12 h-12 text-gravity-blue mb-4 opacity-50" />
               <h3 className="font-bold text-gravity-text-main-light dark:text-gravity-text-main-dark mb-2">
-                Learn by Doing
+                {t('reference.learnByDoing.title')}
               </h3>
               <p className="text-sm text-gravity-text-sub-light dark:text-gravity-text-sub-dark text-center max-w-md">
-                This topic is best learned through practice and experience. Focus on completing the lessons and quizzes!
+                {t('reference.learnByDoing.description')}
               </p>
             </div>
           ) : references && references.materials.length > 0 ? (
@@ -179,95 +181,95 @@ export const ReferenceSection: React.FC<ReferenceSectionProps> = ({
                           {material.description}
                         </p>
                         <span
-                          className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
-                          style={{ backgroundColor: unit.color + '15', color: unit.color }}
-                        >
-                          Key Concept
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  // Clickable external link
-                  <a
-                    key={material.id}
-                    href={material.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block p-4 border border-gravity-border-light dark:border-gravity-border-dark rounded-xl hover:border-gravity-blue hover:shadow-md transition-all group bg-gravity-light dark:bg-black/20"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: unit.color + '15' }}
-                      >
-                        {getTypeIcon(material.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-gravity-text-main-light dark:text-gravity-text-main-dark truncate group-hover:text-gravity-blue transition-colors">
-                            {material.title}
-                          </h3>
-                          <ExternalLink className="w-4 h-4 text-gravity-text-sub-light dark:text-gravity-text-sub-dark opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </div>
-                        <p className="text-sm text-gravity-text-sub-light dark:text-gravity-text-sub-dark line-clamp-2 mb-2">
-                          {material.description}
-                        </p>
-                        <div className="flex items-center gap-3">
-                          <span
-                            className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
-                            style={{ backgroundColor: unit.color + '15', color: unit.color }}
-                          >
-                            {getTypeLabel(material.type)}
-                          </span>
-                          <span className="text-xs text-gravity-text-sub-light dark:text-gravity-text-sub-dark">
-                            {material.source}
-                          </span>
-                          {material.validatedAt && (
-                            <span className="text-xs text-gravity-text-sub-light dark:text-gravity-text-sub-dark opacity-50">
-                              Verified {new Date(material.validatedAt).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </a>
-                );
-              })}
+                  className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
+                  style={{ backgroundColor: unit.color + '15', color: unit.color }}
+                >
+                  {t('reference.keyConcept')}
+                </span>
+              </div>
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12">
-              <BookOpen className="w-12 h-12 text-gravity-text-sub-light dark:text-gravity-text-sub-dark mb-4 opacity-30" />
-              <h3 className="font-bold text-gravity-text-main-light dark:text-gravity-text-main-dark mb-2">
-                No References Yet
-              </h3>
-              <p className="text-sm text-gravity-text-sub-light dark:text-gravity-text-sub-dark text-center mb-6 max-w-sm">
-                Generate curated reference materials to supplement your learning for this unit.
-              </p>
-              <Button onClick={handleGenerateReferences}>
-                <BookOpen className="w-4 h-4 mr-2" />
-                Generate References
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* Footer with refresh option if references exist */}
-        {references && references.materials.length > 0 && (
-          <div className="p-4 border-t border-gravity-border-light dark:border-gravity-border-dark shrink-0 flex justify-between items-center">
-            <span className="text-xs text-gravity-text-sub-light dark:text-gravity-text-sub-dark">
-              {references.materials.length} resource{references.materials.length !== 1 ? 's' : ''} found
-            </span>
-            <button
-              onClick={handleGenerateReferences}
-              disabled={isLoading}
-              className="text-xs text-gravity-blue hover:underline flex items-center gap-1"
-            >
-              <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
           </div>
-        )}
+        ) : (
+          // Clickable external link
+          <a
+            key={material.id}
+            href={material.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block p-4 border border-gravity-border-light dark:border-gravity-border-dark rounded-xl hover:border-gravity-blue hover:shadow-md transition-all group bg-gravity-light dark:bg-black/20"
+          >
+            <div className="flex items-start gap-4">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                style={{ backgroundColor: unit.color + '15' }}
+              >
+                {getTypeIcon(material.type)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-bold text-gravity-text-main-light dark:text-gravity-text-main-dark truncate group-hover:text-gravity-blue transition-colors">
+                    {material.title}
+                  </h3>
+                  <ExternalLink className="w-4 h-4 text-gravity-text-sub-light dark:text-gravity-text-sub-dark opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                </div>
+                <p className="text-sm text-gravity-text-sub-light dark:text-gravity-text-sub-dark line-clamp-2 mb-2">
+                  {material.description}
+                </p>
+                <div className="flex items-center gap-3">
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
+                    style={{ backgroundColor: unit.color + '15', color: unit.color }}
+                  >
+                    {getTypeLabel(material.type)}
+                  </span>
+                  <span className="text-xs text-gravity-text-sub-light dark:text-gravity-text-sub-dark">
+                    {material.source}
+                  </span>
+                  {material.validatedAt && (
+                    <span className="text-xs text-gravity-text-sub-light dark:text-gravity-text-sub-dark opacity-50">
+                      {t('reference.verified', { date: new Date(material.validatedAt).toLocaleDateString() })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  ) : (
+    <div className="flex flex-col items-center justify-center py-12">
+      <BookOpen className="w-12 h-12 text-gravity-text-sub-light dark:text-gravity-text-sub-dark mb-4 opacity-30" />
+      <h3 className="font-bold text-gravity-text-main-light dark:text-gravity-text-main-dark mb-2">
+        {t('reference.noReferences')}
+      </h3>
+      <p className="text-sm text-gravity-text-sub-light dark:text-gravity-text-sub-dark text-center mb-6 max-w-sm">
+        {t('reference.generateDescription')}
+      </p>
+      <Button onClick={handleGenerateReferences}>
+        <BookOpen className="w-4 h-4 mr-2" />
+        {t('reference.generate')}
+      </Button>
+    </div>
+  )}
+</div>
+
+{/* Footer with refresh option if references exist */}
+{references && references.materials.length > 0 && (
+  <div className="p-4 border-t border-gravity-border-light dark:border-gravity-border-dark shrink-0 flex justify-between items-center">
+    <span className="text-xs text-gravity-text-sub-light dark:text-gravity-text-sub-dark">
+      {t('reference.resourcesFound_plural', { count: references.materials.length })}
+    </span>
+    <button
+      onClick={handleGenerateReferences}
+      disabled={isLoading}
+      className="text-xs text-gravity-blue hover:underline flex items-center gap-1"
+    >
+      <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+      {t('reference.refresh')}
+    </button>
+  </div>
+)}
       </div>
 
       {/* Subjective Topic Modal */}

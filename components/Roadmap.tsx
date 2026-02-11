@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../store/useStore';
 import { generateLessonOptimized } from '../services/aiOptimized';
 import { generateUnit, generatePathSuggestions, generateUnitReferences } from '../services/ai';
@@ -11,6 +12,7 @@ import { getLessonTemplate } from '../services/webSearch';
 import { ReferenceSection } from './ReferenceSection';
 
 export const Roadmap: React.FC = () => {
+  const { t } = useTranslation();
   const store = useStore();
   const lessonLoader = useLessonLoader();
   const [loadingChapterId, setLoadingChapterId] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export const Roadmap: React.FC = () => {
   const activeCourse = store.courses.find(c => c.id === store.activeCourseId);
 
   const handleSignOut = () => {
-    if (confirm('Are you sure you want to sign out? Your local progress will be saved but sync will stop.')) {
+    if (confirm(t('roadmap.signOutConfirm'))) {
       store.logout();
     }
   };
@@ -40,13 +42,13 @@ export const Roadmap: React.FC = () => {
     const shareUrl = `${window.location.origin}/?courseId=${courseId}`;
     if (navigator.share) {
       navigator.share({
-        title: activeCourse?.topic || 'Manabu Course',
-        text: `Check out this course on ${activeCourse?.topic}!`,
+        title: activeCourse?.topic || t('roadmap.shareTitle'),
+        text: t('roadmap.shareText', { topic: activeCourse?.topic }),
         url: shareUrl,
       });
     } else {
       navigator.clipboard.writeText(shareUrl);
-      alert('Link copied to clipboard!');
+      alert(t('roadmap.linkCopied'));
     }
   };
 
@@ -124,7 +126,7 @@ export const Roadmap: React.FC = () => {
 
     try {
       // Phase: Checking cache
-      lessonLoader.updatePhase('checking-cache', 'Checking for saved content...');
+      lessonLoader.updatePhase('checking-cache', t('roadmap.checkingCache'));
 
       // Check abort signal
       if (loadingAbortRef.current?.signal.aborted) {
@@ -132,9 +134,9 @@ export const Roadmap: React.FC = () => {
       }
 
       // Try to get from cache first
-      const cached = await lessonCache.getCachedLesson(topic, chapter.title, lessonType);
-      if (cached) {
-        lessonLoader.updatePhase('finalizing', 'Loading from cache...');
+      const cached = await lessonCache.getCachedLesson(topic, chapter.title, lessonType, chapter.id);
+      if (cached && cached.questions && cached.questions.length > 0) {
+        lessonLoader.updatePhase('finalizing', t('roadmap.loadingCache'));
         await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause for UX
         store.setLessonContent({ ...cached, chapterId: chapter.id });
         setLoadingChapterId(null);
@@ -142,7 +144,7 @@ export const Roadmap: React.FC = () => {
       }
 
       // Phase: Generating with better error handling
-      lessonLoader.updatePhase('generating', 'Generating personalized content...');
+      lessonLoader.updatePhase('generating', t('roadmap.generatingContent'));
 
       // Check abort signal before generating
       if (loadingAbortRef.current?.signal.aborted) {
@@ -151,6 +153,7 @@ export const Roadmap: React.FC = () => {
 
       // Use optimized single-call generation with search phase
       const content = await generateLessonOptimized(topic, chapter.title, lessonType, (phase, message) => {
+        // We still use the message from the service, but we could translate the phase if needed
         lessonLoader.updatePhase(phase as any, message);
       });
 
@@ -164,14 +167,17 @@ export const Roadmap: React.FC = () => {
         throw new Error('Generated content is invalid or empty');
       }
 
+      // Inject chapterId before caching to ensure validation passes on retrieval
+      const contentWithId = { ...content, chapterId: chapter.id };
+
       // Cache the generated content
-      await lessonCache.cacheLesson(topic, chapter.title, content, lessonType);
+      await lessonCache.cacheLesson(topic, chapter.title, contentWithId, lessonType);
 
       // Phase: Finalizing
-      lessonLoader.updatePhase('finalizing', 'Almost ready...');
+      lessonLoader.updatePhase('finalizing', t('roadmap.almostReady'));
       await new Promise(resolve => setTimeout(resolve, 200));
 
-      store.setLessonContent({ ...content, chapterId: chapter.id });
+      store.setLessonContent(contentWithId);
       setLoadingChapterId(null);
       return true;
     } catch (error) {
@@ -184,7 +190,7 @@ export const Roadmap: React.FC = () => {
 
       // Simple retry logic - just retry the same call once
       if (retryCount === 0) {
-        lessonLoader.updatePhase('generating', 'Retrying...');
+        lessonLoader.updatePhase('generating', t('roadmap.retrying'));
         await new Promise(resolve => setTimeout(resolve, 1000));
         return loadLessonWithRetry(unit, chapter, 1);
       }
@@ -192,16 +198,16 @@ export const Roadmap: React.FC = () => {
       // Max retries exceeded - provide helpful error message
       const errorMessage = error instanceof Error 
         ? error.message.includes('Rate limit')
-          ? 'Rate limit reached. Please wait a few minutes before trying again.'
+          ? t('roadmap.rateLimit')
           : error.message.includes('Network')
-            ? 'Network error. Please check your connection.'
+            ? t('roadmap.networkError')
             : error.message
-        : 'Failed to load lesson after multiple attempts';
+        : t('roadmap.failedLoad');
         
       lessonLoader.setError(errorMessage);
       return false;
     }
-  }, [activeCourse, lessonLoader, store]);
+  }, [activeCourse, lessonLoader, store, t]);
 
   const handleChapterClick = async (unit: Unit, chapter: Chapter) => {
     if (manageMode) return;
@@ -228,7 +234,7 @@ export const Roadmap: React.FC = () => {
       // Set up timeout
       timeoutRef.current = setTimeout(() => {
         if (store.loadingState?.chapterId === chapter.id) {
-          lessonLoader.setError('Taking longer than usual...');
+          lessonLoader.setError(t('roadmap.takingLonger'));
         }
       }, DEFAULT_LOADER_CONFIG.timeout);
 
@@ -242,7 +248,10 @@ export const Roadmap: React.FC = () => {
       }
 
       if (!success) {
-        setLoadingChapterId(null);
+        // Only clear loading state if aborted, otherwise keep error visible
+        if (loadingAbortRef.current?.signal.aborted) {
+          setLoadingChapterId(null);
+        }
       }
     } catch (error) {
       console.error('Error in handleChapterClick:', error);
@@ -251,8 +260,13 @@ export const Roadmap: React.FC = () => {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
-      setLoadingChapterId(null);
-      lessonLoader.setError('An unexpected error occurred. Please try again.');
+      
+      // Only clear if aborted
+      if (loadingAbortRef.current?.signal.aborted) {
+        setLoadingChapterId(null);
+      } else {
+        lessonLoader.setError(t('roadmap.unexpectedError'));
+      }
     }
   };
 
@@ -374,10 +388,10 @@ export const Roadmap: React.FC = () => {
       <aside className="w-full md:w-72 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-md border-r border-gray-200 dark:border-gray-600 p-6 flex md:flex-col justify-between sticky top-0 z-30 md:h-screen transition-colors">
         <div className="flex md:flex-col gap-2 w-full overflow-x-auto md:overflow-visible no-scrollbar items-center md:items-stretch">
           <h1 className="hidden md:block text-2xl font-black text-gray-900 dark:text-gray-100 mb-10 tracking-tighter cursor-pointer" onClick={() => store.setAppState(AppState.ONBOARDING)}>
-              MANA<span className="text-blue-600">BU</span>
+              {t('common.brand').slice(0, 4)}<span className="text-blue-600">{t('common.brand').slice(4)}</span>
             </h1>
           
-          <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] px-2 mb-4 hidden md:block">Navigation</div>
+          <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] px-2 mb-4 hidden md:block">{t('roadmap.navigation')}</div>
           
           <button
             onClick={handleExplore}
@@ -388,10 +402,10 @@ export const Roadmap: React.FC = () => {
             `}
           >
             <Compass className="w-5 h-5" />
-            <span className="font-bold hidden md:block text-sm">Explore</span>
+            <span className="font-bold hidden md:block text-sm">{t('roadmap.explore')}</span>
           </button>
 
-          <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] px-2 mb-4 hidden md:block mt-4">Active Tracks</div>
+          <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] px-2 mb-4 hidden md:block mt-4">{t('roadmap.activeTracks')}</div>
           {store.courses.map(c => (
             <div key={c.id} className="relative group flex-shrink-0 md:w-full">
              <button
@@ -421,7 +435,7 @@ export const Roadmap: React.FC = () => {
                     text-gray-400 hover:text-red-500 hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/30
                     md:opacity-0 md:group-hover:opacity-100
                 `}
-                title="Delete Learning Path"
+                title={t('roadmap.deleteTrackTooltip')}
              >
                 <X className="w-3 h-3" />
              </button>
@@ -433,7 +447,7 @@ export const Roadmap: React.FC = () => {
             className="flex items-center gap-3 p-3 rounded-xl text-gray-500 dark:text-gray-400 font-bold border border-dashed border-gray-200 dark:border-gray-600 hover:border-blue-600 hover:text-blue-600 transition-colors w-full justify-center md:justify-start mt-2"
           >
              <Plus className="w-5 h-5" />
-             <span className="hidden md:block text-xs uppercase tracking-wider">Add Track</span>
+             <span className="hidden md:block text-xs uppercase tracking-wider">{t('roadmap.addTrack')}</span>
           </button>
         </div>
 
@@ -449,15 +463,15 @@ export const Roadmap: React.FC = () => {
                         {store.user.fullName}
                       </div>
                       <div className="text-[10px] text-gravity-text-sub-light dark:text-gravity-text-sub-dark font-mono flex items-center gap-2">
-                        <span>XP: {store.xp}</span>
+                        <span>{t('roadmap.xp', { count: store.xp })}</span>
                         <span className="w-1 h-1 bg-gravity-blue rounded-full"></span>
-                        <span>🔥 {store.streak}</span>
+                        <span>{t('roadmap.streak', { count: store.streak })}</span>
                       </div>
                     </div>
                     <button 
                       onClick={handleSignOut}
                       className="p-2 text-gravity-text-sub-light dark:text-gravity-text-sub-dark hover:text-red-500 transition-colors"
-                      title="Sign Out"
+                      title={t('auth.signOut')}
                     >
                       <LogOut className="w-4 h-4" />
                     </button>
@@ -471,7 +485,7 @@ export const Roadmap: React.FC = () => {
                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center group-hover:bg-white/30 transition-colors">
                    <UserIcon className="w-4 h-4" />
                  </div>
-                 <span>Sign In</span>
+                 <span>{t('auth.signIn')}</span>
                </button>
              )}
         </div>
@@ -483,7 +497,7 @@ export const Roadmap: React.FC = () => {
         
         {/* Mobile Header */}
         <div className="sticky top-0 z-40 bg-gray-50/90 dark:bg-gray-900/90 backdrop-blur border-b border-gray-200 dark:border-gray-600 px-4 py-3 flex justify-between items-center md:hidden">
-             <div className="font-black text-xl tracking-tighter">MANA<span className="text-blue-600">BU</span></div>
+             <div className="font-black text-xl tracking-tighter">{t('common.brand').slice(0, 4)}<span className="text-blue-600">{t('common.brand').slice(4)}</span></div>
              <div className="flex items-center gap-4 ml-auto">
                 <span className="font-bold text-yellow-500 font-mono">🔥 {store.streak}</span>
                 <span className="font-bold text-red-500 font-mono">❤️ {store.hearts}</span>
@@ -507,7 +521,7 @@ export const Roadmap: React.FC = () => {
                     className="mt-6 bg-blue-600 text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-blue-700 transition-all uppercase tracking-wider text-sm shadow-lg"
                   >
                      <Dumbbell className="w-4 h-4" />
-                     Review ({dueReviewItems})
+                     {t('roadmap.review')} ({dueReviewItems})
                   </button>
                 )}
                 
@@ -517,7 +531,7 @@ export const Roadmap: React.FC = () => {
                     className="mt-6 bg-green-600 text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-green-700 transition-all uppercase tracking-wider text-sm shadow-lg ml-4"
                   >
                      <BookOpen className="w-4 h-4" />
-                     Review Exercise
+                     {t('roadmap.reviewExercise')}
                   </button>
                 )}
              </div>
@@ -529,12 +543,12 @@ export const Roadmap: React.FC = () => {
 
           {/* Controls */}
           <div className="flex justify-between items-center mb-8">
-             <div className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-[0.2em] text-xs">Curriculum Path</div>
+             <div className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-[0.2em] text-xs">{t('roadmap.curriculumPath')}</div>
              <div className="flex items-center gap-2">
                <button
                  onClick={() => handleShare(activeCourse.id)}
                  className="p-3 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
-                 title="Share Course"
+                 title={t('roadmap.shareCourse')}
                >
                  <Share2 className="w-5 h-5" />
                </button>
@@ -549,10 +563,10 @@ export const Roadmap: React.FC = () => {
 
           {manageMode && (
              <div className="bg-red-50 border border-red-200 p-6 rounded-2xl mb-8 text-center">
-               <h3 className="font-bold text-red-500 mb-4 uppercase tracking-widest text-xs">Edit Mode Active</h3>
+               <h3 className="font-bold text-red-500 mb-4 uppercase tracking-widest text-xs">{t('roadmap.editMode')}</h3>
                 <div className="flex gap-2 justify-center">
                    <Button variant="danger" onClick={() => store.deleteCourse(activeCourse.id)} size="sm">
-                      Delete Track
+                      {t('roadmap.deleteTrack')}
                    </Button>
                 </div>
              </div>
@@ -569,7 +583,7 @@ export const Roadmap: React.FC = () => {
                 >
                   <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 flex justify-between items-center h-[98%] w-[99.5%] mx-auto mt-[1px]">
                     <div>
-                      <h3 className="font-black text-2xl text-gray-900 dark:text-gray-100 uppercase tracking-tight">Unit {unitIdx + 1}</h3>
+                      <h3 className="font-black text-2xl text-gray-900 dark:text-gray-100 uppercase tracking-tight">{t('roadmap.unit')} {unitIdx + 1}</h3>
                       <p className="font-bold text-sm mt-1" style={{ color: unit.color }}>{unit.title}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 max-w-md">{unit.description}</p>
                     </div>
@@ -579,7 +593,7 @@ export const Roadmap: React.FC = () => {
                         <button
                           onClick={() => setReferenceUnitId(unit.id)}
                           className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors group relative"
-                          title="Reference Materials"
+                          title={t('roadmap.referenceMaterials')}
                         >
                           <Library className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 transition-colors" />
                           {unit.references && unit.references.materials.length > 0 && (
@@ -686,7 +700,7 @@ export const Roadmap: React.FC = () => {
                     {isAddingUnit ? (
                       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 px-8 py-4 rounded-full flex items-center gap-3 shadow-xl">
                           <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                          <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">Extending...</span>
+                          <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">{t('roadmap.extending')}</span>
                       </div>
                     ) : (
                       <button 
@@ -705,7 +719,7 @@ export const Roadmap: React.FC = () => {
                             <Cloud className="w-5 h-5 text-blue-600" />
                           )}
                           <span className="font-bold text-sm uppercase tracking-wider">
-                            {loadingSuggestions ? 'Thinking...' : 'Extend Path'}
+                            {loadingSuggestions ? t('roadmap.thinking') : t('roadmap.extendPath')}
                           </span>
                       </button>
                     )}
@@ -727,7 +741,7 @@ export const Roadmap: React.FC = () => {
                 <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
               </button>
 
-              <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100 mb-6">Where to next?</h2>
+              <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100 mb-6">{t('roadmap.whereNext')}</h2>
 
               {loadingSuggestions ? (
                  <div className="space-y-3 py-4">
@@ -755,7 +769,7 @@ export const Roadmap: React.FC = () => {
                     type="text"
                     value={customPath}
                     onChange={(e) => setCustomPath(e.target.value)}
-                    placeholder="Or type custom topic..."
+                    placeholder={t('roadmap.customTopicPlaceholder')}
                     className="flex-1 p-3 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:border-blue-600 text-gray-900 dark:text-gray-100 text-sm"
                  />
                  <Button onClick={() => handleAddSpecificUnit(customPath)} disabled={!customPath.trim()}>
@@ -786,9 +800,9 @@ export const Roadmap: React.FC = () => {
                 <Trash2 className="w-8 h-8 text-red-600" />
               </div>
               
-              <h3 className="text-xl font-black text-gray-900 dark:text-gray-100 mb-2">Delete Path?</h3>
+              <h3 className="text-xl font-black text-gray-900 dark:text-gray-100 mb-2">{t('roadmap.deletePathTitle')}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
-                Are you sure you want to delete the <span className="font-bold text-gray-900 dark:text-gray-100">"{courseToDelete.topic}"</span> learning path? This action cannot be undone.
+                {t('roadmap.deletePathConfirm', { topic: courseToDelete.topic })}
               </p>
               
               <div className="flex gap-3 w-full">
@@ -796,7 +810,7 @@ export const Roadmap: React.FC = () => {
                   onClick={() => setCourseToDelete(null)}
                   className="flex-1 px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button 
                   onClick={() => {
@@ -805,7 +819,7 @@ export const Roadmap: React.FC = () => {
                   }}
                   className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
                 >
-                  Delete
+                  {t('common.delete')}
                 </button>
               </div>
             </div>

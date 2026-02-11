@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../store/useStore';
 import { X, Mail, Lock, User as UserIcon, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface AuthModalProps {
 const EMOJIS = ['👤', '🚀', '🧠', '🎨', '🧪', '🧬', '💻', '🌟', '🔥', '🌈', '⚡️', '🦄'];
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'login' }) => {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,7 +46,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
+        throw new Error(data.error || t('auth.failed'));
       }
 
       store.login(data.user, data.token);
@@ -66,7 +68,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         <div className="p-8">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-black tracking-tight text-gravity-text-main-light dark:text-gravity-text-main-dark">
-              {mode === 'login' ? 'Welcome Back' : 'Create Account'}
+              {mode === 'login' ? t('auth.welcomeBack') : t('auth.createAccount')}
             </h2>
             <button 
               onClick={onClose}
@@ -87,7 +89,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               <>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gravity-text-sub-light dark:text-gravity-text-sub-dark ml-1">
-                    Full Name
+                    {t('auth.fullName')}
                   </label>
                   <div className="relative group">
                     <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gravity-text-sub-light dark:text-gravity-text-sub-dark group-focus-within:text-gravity-blue transition-colors" />
@@ -97,14 +99,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       className="w-full pl-12 pr-4 py-4 bg-black/5 dark:bg-white/5 border border-gravity-border-light dark:border-gravity-border-dark rounded-2xl focus:border-gravity-blue focus:ring-4 focus:ring-gravity-blue/10 outline-none transition-all font-medium"
-                      placeholder="John Doe"
+                      placeholder={t('auth.fullNamePlaceholder')}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gravity-text-sub-light dark:text-gravity-text-sub-dark ml-1">
-                    Choose Your Avatar
+                    {t('auth.chooseAvatar')}
                   </label>
                   <div className="grid grid-cols-6 gap-2 p-3 bg-black/5 dark:bg-white/5 rounded-2xl border border-gravity-border-light dark:border-gravity-border-dark">
                     {EMOJIS.map((e) => (
@@ -128,7 +130,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
 
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gravity-text-sub-light dark:text-gravity-text-sub-dark ml-1">
-                Email Address
+                {t('auth.emailAddress')}
               </label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gravity-text-sub-light dark:text-gravity-text-sub-dark group-focus-within:text-gravity-blue transition-colors" />
@@ -138,14 +140,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-black/5 dark:bg-white/5 border border-gravity-border-light dark:border-gravity-border-dark rounded-2xl focus:border-gravity-blue focus:ring-4 focus:ring-gravity-blue/10 outline-none transition-all font-medium"
-                  placeholder="name@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gravity-text-sub-light dark:text-gravity-text-sub-dark ml-1">
-                Password
+                {t('auth.password')}
               </label>
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gravity-text-sub-light dark:text-gravity-text-sub-dark group-focus-within:text-gravity-blue transition-colors" />
@@ -168,7 +170,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               {loading ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
               ) : (
-                mode === 'login' ? 'Sign In' : 'Create Account'
+                mode === 'login' ? t('auth.signIn') : t('auth.createAccount')
               )}
             </button>
           </form>
@@ -180,11 +182,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             >
               {mode === 'login' ? (
                 <>
-                  Don't have an account? <span className="text-gravity-blue">Sign up</span>
+                  {t('auth.dontHaveAccount')} <span className="text-gravity-blue">{t('auth.signUp')}</span>
                 </>
               ) : (
                 <>
-                  Already have an account? <span className="text-gravity-blue">Sign in</span>
+                  {t('auth.alreadyHaveAccount')} <span className="text-gravity-blue">{t('auth.signIn')}</span>
                 </>
               )}
             </button>

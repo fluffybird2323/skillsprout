@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, BookOpen, Search, Info } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
@@ -17,6 +18,7 @@ export const SubjectiveTopicModal: React.FC<SubjectiveTopicModalProps> = ({
   unitTitle,
   onSearchGoogle,
 }) => {
+  const { t } = useTranslation();
   const { theme } = useStore();
 
   if (!isOpen) return null;
@@ -31,7 +33,7 @@ export const SubjectiveTopicModal: React.FC<SubjectiveTopicModalProps> = ({
               <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-gravity-text-main-dark">
-              No References Available
+              {t('subjectiveModal.title')}
             </h2>
           </div>
           <button
@@ -48,39 +50,37 @@ export const SubjectiveTopicModal: React.FC<SubjectiveTopicModalProps> = ({
             <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="space-y-2">
               <h3 className="font-semibold text-gray-900 dark:text-gravity-text-main-dark">
-                This is a subjective or personal development topic
+                {t('subjectiveModal.subtitle')}
               </h3>
               <p className="text-sm text-gray-600 dark:text-gravity-text-sub-dark leading-relaxed">
-                Topics like <span className="font-medium">"{unitTitle}"</span> are highly personal and subjective.
-                Instead of external references, we recommend learning through interactive quizzes and
-                self-reflection exercises that help you discover what works best for you.
+                {t('subjectiveModal.description', { topic: unitTitle })}
               </p>
             </div>
           </div>
 
           <div className="space-y-2">
             <p className="text-sm text-gray-700 dark:text-gravity-text-main-dark">
-              <strong>Why no references?</strong>
+              <strong>{t('subjectiveModal.whyNoRefs')}</strong>
             </p>
             <ul className="text-sm text-gray-600 dark:text-gravity-text-sub-dark space-y-1.5 ml-4">
               <li className="flex items-start gap-2">
                 <span className="text-blue-500 dark:text-blue-400 mt-1">•</span>
-                <span>Personal development strategies vary greatly from person to person</span>
+                <span>{t('subjectiveModal.reason1')}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-500 dark:text-blue-400 mt-1">•</span>
-                <span>Hands-on practice is more effective than reading for these topics</span>
+                <span>{t('subjectiveModal.reason2')}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-500 dark:text-blue-400 mt-1">•</span>
-                <span>Self-discovery through quizzes leads to better understanding</span>
+                <span>{t('subjectiveModal.reason3')}</span>
               </li>
             </ul>
           </div>
 
           <div className="pt-2">
             <p className="text-sm text-gray-600 dark:text-gravity-text-sub-dark">
-              Still want to explore external resources? You can search Google for articles and research on this topic.
+              {t('subjectiveModal.exploreExternal')}
             </p>
           </div>
         </div>
@@ -91,14 +91,14 @@ export const SubjectiveTopicModal: React.FC<SubjectiveTopicModalProps> = ({
             onClick={onClose}
             className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
           >
-            Continue Learning
+            {t('subjectiveModal.continueLearning')}
           </button>
           <button
             onClick={onSearchGoogle}
             className="flex-1 px-4 py-2.5 bg-blue-600 dark:bg-gravity-blue text-white rounded-lg font-medium hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
           >
             <Search className="w-4 h-4" />
-            Search Google
+            {t('subjectiveModal.searchGoogle')}
           </button>
         </div>
       </div>

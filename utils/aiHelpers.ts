@@ -33,7 +33,7 @@ export function cleanAndParseJSON(text: string): any {
       return JSON.parse(cleanText);
     } catch (retryError) {
       console.error("Critical JSON Parse Error", retryError);
-      throw new Error("Failed to parse AI response. The neural link returned corrupted data.");
+      throw new Error('Failed to parse AI response');
     }
   }
 }

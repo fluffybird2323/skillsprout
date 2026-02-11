@@ -1,0 +1,264 @@
+export default {
+  settings: {
+    title: "Paramètres",
+    theme: "Thème",
+    language: "Langue",
+    install: "Installer l'application",
+    close: "Fermer",
+    iosInstall: "Pour installer cette application, ouvrez le menu Partager et appuyez sur \"Sur l'écran d'accueil\".",
+    installInstructions: "Pour installer cette application, ouvrez le menu Partager et appuyez sur \"Sur l'écran d'accueil\"."
+  },
+  theme: {
+    light: "Clair",
+    dark: "Sombre",
+    system: "Système"
+  },
+  auth: {
+    signIn: "Se connecter",
+    signOut: "Se déconnecter",
+    welcomeBack: "Bon retour parmi nous",
+    createAccount: "Créer un compte",
+    fullName: "Nom complet",
+    fullNamePlaceholder: "Jean Dupont",
+    chooseAvatar: "Choisissez votre avatar",
+    emailAddress: "Adresse e-mail",
+    emailPlaceholder: "nom@exemple.fr",
+    password: "Mot de passe",
+    dontHaveAccount: "Vous n'avez pas de compte ?",
+    signUp: "S'inscrire",
+    alreadyHaveAccount: "Vous avez déjà un compte ?",
+    failed: "Échec de l'authentification"
+  },
+  common: {
+    loading: "Chargement...",
+    initializing: "Initialisation du protocole",
+    error: "Erreur",
+    retry: "Réessayer",
+    cancel: "Annuler",
+    continue: "Continuer",
+    back: "Retour",
+    delete: "Supprimer",
+    anonymous: "Anonyme",
+    done: "Terminé",
+    tryAgain: "Essayer à nouveau",
+    brand: "MANABU"
+  },
+  error: {
+    systemFailure: "Défaillance du système",
+    criticalError: "Erreur critique détectée dans la matrice neuronale. L'état de l'application est désynchronisé.",
+    rebootSystem: "Redémarrer le système",
+    hardReset: "Réinitialisation complète (Effacer les données)",
+    network: "Erreur réseau. Veuillez vérifier votre connexion.",
+    timeout: "Délai d'attente dépassé. Veuillez réessayer.",
+    serviceUnavailable: "Service temporairement indisponible. Veuillez réessayer.",
+    gateway: "Erreur de passerelle. Le service rencontre des problèmes.",
+    gatewayTimeout: "Délai d'attente de la passerelle. La demande a mis trop de temps à être traitée.",
+    unknown: "Erreur inconnue",
+    parseFailed: "Échec de l'analyse de la réponse de l'IA. Le lien neural a renvoyé des données corrompues.",
+    requestTimeout: "Délai d'attente de la demande dépassé - veuillez réessayer"
+  },
+  interactive: {
+    task: "Tâche interactive",
+    success: "Succès",
+    simulation: {
+      instruction: "Ajustez les curseurs pour trouver les bonnes valeurs. Les zones vertes indiquent les plages correctes.",
+      submit: "Parfait ! Envoyer",
+      check: "Vérifier la réponse",
+      keepAdjusting: "Continuez à ajuster...",
+      hint: "Recherchez les zones vertes sur chaque curseur",
+      slider: {
+        adjustToward: "Essayez d'ajuster vers {{target}} {{unit}}",
+        target: "Cible : {{target}} {{unit}} (±{{tolerance}} {{unit}})",
+        range: {
+          correct: "Plage correcte",
+          close: "Proche de la cible",
+          adjust: "Ajuster la valeur"
+        },
+        sr: {
+          correct: "Correct ! {{label}} est réglé sur {{value}} {{unit}}",
+          close: "Vous y êtes presque. Valeur actuelle : {{value}} {{unit}}",
+          current: "Valeur actuelle : {{value}} {{unit}}. La cible est {{target}} {{unit}}"
+        }
+      }
+    },
+    sorting: {
+      incorrect: "Séquence incorrecte.",
+      check: "Vérifier l'ordre"
+    },
+    imageEditor: {
+      upload: "Cliquez pour télécharger",
+      error: "Erreur lors de la génération de l'image."
+    },
+    defaultInstruction: "Complétez l'exercice interactif",
+    defaultFeedback: "Bon travail !"
+  },
+  reference: {
+    title: "Matériel de référence",
+    optionalLabel: "Optionnel :",
+    optionalNotice: "Ces ressources sont sélectionnées par l'IA pour vous aider à approfondir le sujet.",
+    finding: "Recherche des meilleures ressources pour vous...",
+    notFound: "Impossible de trouver des ressources de référence pertinentes pour cette unité.",
+    error: "Échec de la génération des références.",
+    generate: "Générer des références",
+    refresh: "Actualiser",
+    resourcesFound: "{{count}} ressource trouvée",
+    resourcesFound_plural: "{{count}} ressources trouvées",
+    noReferences: "Pas encore de références",
+    generateDescription: "Générez des ressources de référence sélectionnées pour compléter votre apprentissage pour cette unité.",
+    verified: "Vérifié le {{date}}",
+    types: {
+      video: "Vidéo",
+      documentation: "Docs",
+      tutorial: "Tutoriel",
+      interactive: "Interactif",
+      article: "Article"
+    }
+  },
+  review: {
+    intro: "Il est temps de renforcer votre mémoire ! Révisez ces concepts pour garder votre série active."
+  },
+  suggestions: {
+    advanced: "Concepts avancés",
+    practical: "Application pratique",
+    mastery: "Révision de maîtrise"
+  },
+  loader: {
+    initializing: "Chargement de la leçon...",
+    searching: "Recherche de contexte...",
+    searchingContext: "Recherche de contexte réel...",
+    generating: "Création de la leçon...",
+    finalizing: "Presque prêt...",
+    complete: "Prêt !",
+    failed: "Échec",
+    timeout: "Délai dépassé",
+    failedMessage: "Échec du chargement de la leçon",
+    timeoutMessage: "Délai d'attente de la requête dépassé",
+    elapsed: "{{seconds}}s écoulées"
+  },
+  onboarding: {
+    newCourse: "Nouveau cours",
+    startLearning: "Commencer à apprendre",
+    subtitle: "Que voulez-vous apprendre aujourd'hui ? L'IA concevra votre parcours.",
+    placeholder: "ex : Informatique quantique, React.js...",
+    generate: "Générer le cours",
+    constructing: "Construction en cours...",
+    signInToStart: "Connectez-vous pour commencer à apprendre",
+    generateNewCourse: "Générer un nouveau cours",
+    casual: "Décontracté",
+    serious: "Sérieux",
+    obsessed: "Obsédé",
+    categories: {
+      science: "Science",
+      arts: "Arts",
+      code: "Code"
+    },
+    error: "Oups ! L'IA a eu un petit problème. Réessayez."
+  },
+  explore: {
+    title: "Explorer les cours",
+    discovery: "Découverte",
+    subtitle: "Découvrez ce que la communauté apprend.",
+    searchPlaceholder: "Rechercher des sujets (ex : Photographie, Codage...)",
+    scanning: "Scan du multivers...",
+    units: "Unités",
+    communityChoice: "Choix de la communauté",
+    startLearning: "Commencer à apprendre",
+    noCourses: "Aucun cours trouvé",
+    noCoursesSubtitle: "Essayez une autre recherche ou soyez le premier à générer ce cours !",
+    generateNow: "Générer maintenant",
+    backToCourse: "Retour à mon cours"
+  },
+  lesson: {
+    fallback: {
+      intro: "Explorons {{chapter}} et testons votre compréhension des concepts clés.",
+      defaultIntro: "Apprenons-en plus sur {{topic}}.",
+      question1: "Quel est le concept principal de {{chapter}} ?",
+      question2: "Le principe clé de {{topic}} est ___.",
+      explanation1: "Cette question permet d'évaluer la compréhension de {{chapter}}.",
+      explanation2: "Ceci teste le rappel des concepts fondamentaux."
+    },
+    error: "Erreur de leçon",
+    corrupted: "Cette leçon semble incomplète ou corrompue.",
+    tryRecovery: "Tenter une récupération",
+    returnRoadmap: "Retour au parcours",
+    questionError: "Erreur de question",
+    questionLoadError: "La question actuelle n'a pas pu être chargée. Veuillez revenir au parcours.",
+    questionCorrupted: "La question actuelle semble corrompue.",
+    interactiveModule: "Module interactif",
+    knowledgeDownload: "Téléchargement de connaissances",
+    startSession: "Démarrer la session",
+    complete: "TERMINÉ",
+    returnMap: "Retour à la carte",
+    inputAnswer: "Saisir la réponse",
+    trueFalse: "Vrai ou Faux",
+    selectOne: "Sélectionnez-en un",
+    typeHere: "Tapez ici...",
+    true: "Vrai",
+    false: "Faux",
+    checkAnswer: "Vérifier la réponse",
+    correct: "Correct",
+    incorrect: "Incorrect",
+    correctAnswer: "Bonne réponse : ",
+    tip: "Conseil :",
+    tipDescription: "Vous avez des difficultés ? Consultez le matériel de référence de l'unité pour des ressources d'apprentissage supplémentaires."
+  },
+  roadmap: {
+    signOutConfirm: "Êtes-vous sûr de vouloir vous déconnecter ? Votre progression locale sera sauvegardée mais la synchronisation s'arrêtera.",
+    shareTitle: "Cours Manabu",
+    shareText: "Découvrez ce cours sur {{topic}} !",
+    linkCopied: "Lien copié dans le presse-papiers !",
+    navigation: "Navigation",
+    explore: "Explorer",
+    activeTracks: "Parcours actifs",
+    addTrack: "Ajouter un parcours",
+    curriculumPath: "Chemin pédagogique",
+    shareCourse: "Partager le cours",
+    review: "Révision",
+    reviewExercise: "Exercice de révision",
+    editMode: "Mode édition actif",
+    deleteTrack: "Supprimer le parcours",
+    deleteTrackTooltip: "Supprimer le chemin d'apprentissage",
+    unit: "Unité",
+    referenceMaterials: "Matériel de référence",
+    extending: "Extension...",
+    extendPath: "Étendre le chemin",
+    thinking: "Réflexion...",
+    whereNext: "Quelle est la prochaine étape ?",
+    customTopicPlaceholder: "Ou tapez un sujet personnalisé...",
+    deletePathTitle: "Supprimer le chemin ?",
+    deletePathConfirm: "Êtes-vous sûr de vouloir supprimer le chemin d'apprentissage \"{{topic}}\" ? Cette action est irréversible.",
+    checkingCache: "Vérification du contenu sauvegardé...",
+    loadingCache: "Chargement depuis le cache...",
+    generatingContent: "Génération de contenu personnalisé...",
+    almostReady: "Presque prêt...",
+    retrying: "Réessai...",
+    rateLimit: "Limite de débit atteinte. Veuillez patienter quelques minutes avant de réessayer.",
+    networkError: "Erreur réseau. Veuillez vérifier votre connexion.",
+    failedLoad: "Échec du chargement de la leçon après plusieurs tentatives",
+    takingLonger: "Cela prend plus de temps que d'habitude...",
+    unexpectedError: "Une erreur inattendue est survenue. Veuillez réessayer.",
+    failedGenerateUnit: "Échec de la génération de l'unité.",
+    xp: "XP : {{count}}",
+    streak: "🔥 {{count}}",
+    hearts: "❤️ {{count}}"
+  },
+  subjectiveModal: {
+    title: "Aucune référence disponible",
+    subtitle: "Il s'agit d'un sujet de développement subjectif ou personnel",
+    description: "Les sujets comme \"{{topic}}\" sont hautement personnels et subjectifs. Au lieu de références externes, nous recommandons d'apprendre par des quiz interactifs et des exercices d'autoréflexion qui vous aident à découvrir ce qui fonctionne le mieux pour vous.",
+    whyNoRefs: "Pourquoi pas de références ?",
+    reason1: "Les stratégies de développement personnel varient considérablement d'une personne à l'autre",
+    reason2: "La pratique concrète est plus efficace que la lecture pour ces sujets",
+    reason3: "L'auto-découverte par les quiz mène à une meilleure compréhension",
+    exploreExternal: "Vous souhaitez tout de même explorer des ressources externes ? Vous pouvez rechercher des articles et des recherches sur ce sujet sur Google.",
+    continueLearning: "Continuer l'apprentissage",
+    searchGoogle: "Recherche Google"
+  },
+  pwa: {
+    installTitle: "Installer Manabu",
+    iosInstructions: "Installez cette application sur votre iPhone : appuyez sur {{icon}} puis sur Sur l'écran d'accueil.",
+    androidInstructions: "Installez l'application pour une meilleure expérience avec un accès hors ligne et un chargement plus rapide.",
+    install: "Installer",
+    notNow: "Pas maintenant"
+  }
+};

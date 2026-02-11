@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface SliderConfig {
   label: string;
@@ -22,6 +23,7 @@ const EnhancedSlider: React.FC<EnhancedSliderProps> = ({
   onChange, 
   disabled = false 
 }) => {
+  const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -234,7 +236,7 @@ const EnhancedSlider: React.FC<EnhancedSliderProps> = ({
           aria-valuemin={config.min}
           aria-valuemax={config.max}
           aria-valuenow={value}
-          aria-valuetext={`${value.toFixed(1)} ${config.unit}. ${isInRange ? 'Correct range' : isInNeighborhood ? 'Close to target' : 'Adjust value'}`}
+          aria-valuetext={`${value.toFixed(1)} ${config.unit}. ${isInRange ? t('interactive.slider.range.correct') : isInNeighborhood ? t('interactive.slider.range.close') : t('interactive.slider.range.adjust')}`}
           tabIndex={disabled ? -1 : 0}
           onKeyDown={handleKeyDown}
           onMouseDown={handleMouseDown}
@@ -301,23 +303,23 @@ const EnhancedSlider: React.FC<EnhancedSliderProps> = ({
               transform: 'translateX(-50%)'
             }}
           >
-            Try adjusting toward {config.targetValue.toFixed(1)} {config.unit}
+            {t('interactive.slider.adjustToward', { target: config.targetValue.toFixed(1), unit: config.unit })}
           </div>
         )}
       </div>
       
       {/* Target hint */}
       <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-        Target: {config.targetValue.toFixed(1)} {config.unit} (±{tolerance.toFixed(1)} {config.unit})
+        {t('interactive.slider.target', { target: config.targetValue.toFixed(1), tolerance: tolerance.toFixed(1), unit: config.unit })}
       </div>
       
       {/* Screen reader announcement */}
       <div className="sr-only" aria-live="polite">
         {isInRange 
-          ? `Correct! ${config.label} is set to ${value.toFixed(1)} ${config.unit}`
+          ? t('interactive.slider.sr.correct', { label: config.label, value: value.toFixed(1), unit: config.unit })
           : isInNeighborhood
-          ? `Getting close. Current value: ${value.toFixed(1)} ${config.unit}`
-          : `Current value: ${value.toFixed(1)} ${config.unit}. Target is ${config.targetValue.toFixed(1)} ${config.unit}`
+          ? t('interactive.slider.sr.close', { value: value.toFixed(1), unit: config.unit })
+          : t('interactive.slider.sr.current', { value: value.toFixed(1), unit: config.unit, target: config.targetValue.toFixed(1) })
         }
       </div>
     </div>
