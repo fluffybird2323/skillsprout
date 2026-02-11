@@ -40,5 +40,7 @@ coverage/
 # Misc
 *.pem
 .vercel
+data/
+*.db
 
 certificates
