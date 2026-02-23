@@ -13,6 +13,11 @@ export default {
     dark: "深色",
     system: "系统"
   },
+  splash: {
+    title: "Manabu",
+    question: "你今天想学什么？",
+    tagline: "AI 将设计你的旅程。"
+  },
   auth: {
     signIn: "登录",
     signOut: "退出登录",
@@ -27,7 +32,18 @@ export default {
     dontHaveAccount: "还没有账号？",
     signUp: "注册",
     alreadyHaveAccount: "已有账号？",
-    failed: "身份验证失败"
+    failed: "身份验证失败",
+    welcomeToast: "欢迎！让我们创建您的第一个课程 🎉",
+    error: "出了点问题 - 请重试",
+    welcome: "欢迎来到 Manabu",
+    subtitle: "您的课程和进度将永久保存",
+    createTab: "创建账户",
+    signInTab: "登录",
+    username: "用户名",
+    email: "电子邮箱",
+    passwordHint: "必须至少包含 6 个字符",
+    signInButton: "登录",
+    createButton: "创建账户并开始学习"
   },
   common: {
     loading: "加载中...",

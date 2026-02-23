@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from './store/useStore';
 import { Onboarding } from './components/Onboarding';
@@ -11,11 +11,18 @@ import { SettingsMenu } from './components/ui/SettingsMenu';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { AuthModal } from './components/AuthModal';
 import { ExploreCourses } from './components/ExploreCourses';
+import { Splash } from './components/Splash';
+import { CombinedAuth } from './components/CombinedAuth';
 import './lib/i18n';
 
 const App: React.FC = () => {
   const { t } = useTranslation();
   const { appState, theme, user, addCourse, switchCourse, courses, isAuthModalOpen, setAuthModalOpen } = useStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Handle shared course ingress
   useEffect(() => {
@@ -79,6 +86,12 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (appState) {
+      case AppState.SPLASH:
+        return <Splash />;
+
+      case AppState.AUTH_REQUIRED:
+        return <CombinedAuth />;
+
       case AppState.ONBOARDING:
       case AppState.ADD_COURSE:
         return <Onboarding />;
@@ -86,9 +99,9 @@ const App: React.FC = () => {
       case AppState.GENERATING_COURSE:
         return (
           <div className="min-h-screen flex flex-col items-center justify-center relative z-10">
-             <div className="flex flex-col items-center animate-pulse">
-               <Loader2 className="w-8 h-8 animate-spin text-gravity-blue mb-4" />
-               <p className="text-sm font-bold text-gravity-text-sub-light dark:text-gravity-text-sub-dark tracking-widest uppercase">Initializing Protocol</p>
+            <div className="flex flex-col items-center animate-pulse">
+              <Loader2 className="w-8 h-8 animate-spin text-gravity-blue mb-4" />
+              <p className="text-sm font-bold text-gravity-text-sub-light dark:text-gravity-text-sub-dark tracking-widest uppercase">Initializing Protocol</p>
             </div>
           </div>
         );
@@ -96,7 +109,7 @@ const App: React.FC = () => {
       case AppState.ROADMAP:
       case AppState.LOADING_LESSON:
         return <Roadmap />;
-      
+
       case AppState.LESSON_ACTIVE:
       case AppState.REVIEW_SESSION:
       case AppState.LESSON_COMPLETE:
@@ -122,9 +135,9 @@ const App: React.FC = () => {
       <ParticleBackground />
       <SettingsMenu />
       <PWAInstallPrompt />
-      
+
       {/* Auth UI */}
-      {!user && appState !== AppState.ONBOARDING && (
+      {mounted && !user && appState !== AppState.ONBOARDING && appState !== AppState.SPLASH && appState !== AppState.AUTH_REQUIRED && (
         <button
           onClick={() => setAuthModalOpen(true)}
           className="fixed top-4 right-16 z-[60] px-4 py-2 bg-gravity-blue text-white text-sm font-bold rounded-xl shadow-lg hover:bg-gravity-blue/90 transition-all active:scale-95 flex items-center gap-2"
@@ -145,13 +158,13 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setAuthModalOpen(false)} 
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setAuthModalOpen(false)}
       />
 
       <div className="relative z-10 min-h-screen">
-         {renderContent()}
+        {mounted && renderContent()}
       </div>
     </main>
   );

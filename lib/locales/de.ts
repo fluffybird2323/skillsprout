@@ -13,6 +13,11 @@ export default {
     dark: "Dunkel",
     system: "System"
   },
+  splash: {
+    title: "Manabu",
+    question: "Was möchtest du heute lernen?",
+    tagline: "Die KI wird deine Reise gestalten."
+  },
   auth: {
     signIn: "Anmelden",
     signOut: "Abmelden",
@@ -27,7 +32,18 @@ export default {
     dontHaveAccount: "Haben Sie noch kein Konto?",
     signUp: "Registrieren",
     alreadyHaveAccount: "Haben Sie bereits ein Konto?",
-    failed: "Authentifizierung fehlgeschlagen"
+    failed: "Authentifizierung fehlgeschlagen",
+    welcomeToast: "Willkommen! Lass uns deinen ersten Kurs erstellen 🎉",
+    error: "Etwas ist schief gelaufen – bitte versuche es erneut",
+    welcome: "Willkommen bei Manabu",
+    subtitle: "Deine Kurse und Fortschritte werden für immer gespeichert",
+    createTab: "Konto erstellen",
+    signInTab: "Anmelden",
+    username: "Benutzername",
+    email: "E-Mail-Adresse",
+    passwordHint: "Muss mindestens 6 Zeichen lang sein",
+    signInButton: "Anmelden",
+    createButton: "Konto erstellen & Lernen starten"
   },
   common: {
     loading: "Laden...",

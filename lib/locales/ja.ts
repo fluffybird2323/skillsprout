@@ -13,6 +13,11 @@ export default {
     dark: "ダーク",
     system: "システム"
   },
+  splash: {
+    title: "Manabu",
+    question: "今日は何を学びたいですか？",
+    tagline: "AIがあなたの旅をデザインします。"
+  },
   auth: {
     signIn: "サインイン",
     signOut: "サインアウト",
@@ -27,7 +32,18 @@ export default {
     dontHaveAccount: "アカウントをお持ちでないですか？",
     signUp: "新規登録",
     alreadyHaveAccount: "既にアカウントをお持ちですか？",
-    failed: "認証に失敗しました"
+    failed: "認証に失敗しました",
+    welcomeToast: "ようこそ！最初のコースを作成しましょう🎉",
+    error: "エラーが発生しました。もう一度お試しください。",
+    welcome: "Manabuへようこそ",
+    subtitle: "学習コースと進捗は永久に保存されます",
+    createTab: "アカウント作成",
+    signInTab: "サインイン",
+    username: "ユーザー名",
+    email: "メールアドレス",
+    passwordHint: "6文字以上で入力してください",
+    signInButton: "サインイン",
+    createButton: "アカウントを作成して学習を始める"
   },
   common: {
     loading: "読み込み中...",

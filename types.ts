@@ -120,6 +120,8 @@ export interface ReviewItem {
 }
 
 export enum AppState {
+  SPLASH, // App entry point
+  AUTH_REQUIRED, // Enforced login/signup
   ONBOARDING, // Initial empty state
   ADD_COURSE, // Adding a specific course (modal/view)
   GENERATING_COURSE,

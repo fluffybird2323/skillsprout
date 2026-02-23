@@ -13,6 +13,11 @@ export default {
     dark: "Sombre",
     system: "Système"
   },
+  splash: {
+    title: "Manabu",
+    question: "Que voulez-vous apprendre aujourd'hui ?",
+    tagline: "L'IA concevra votre parcours."
+  },
   auth: {
     signIn: "Se connecter",
     signOut: "Se déconnecter",
@@ -27,7 +32,18 @@ export default {
     dontHaveAccount: "Vous n'avez pas de compte ?",
     signUp: "S'inscrire",
     alreadyHaveAccount: "Vous avez déjà un compte ?",
-    failed: "Échec de l'authentification"
+    failed: "Échec de l'authentification",
+    welcomeToast: "Bienvenue ! Créons votre premier cours 🎉",
+    error: "Un problème est survenu - veuillez réessayer",
+    welcome: "Bienvenue sur Manabu",
+    subtitle: "Vos cours et vos progrès sont sauvegardés pour toujours",
+    createTab: "Créer un compte",
+    signInTab: "Se connecter",
+    username: "Nom d'utilisateur",
+    email: "Email",
+    passwordHint: "Doit contenir au moins 6 caractères",
+    signInButton: "Se connecter",
+    createButton: "Créer un compte et commencer à apprendre"
   },
   common: {
     loading: "Chargement...",
