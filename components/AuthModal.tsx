@@ -64,8 +64,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         className="fixed inset-0 cursor-pointer" 
         onClick={onClose} 
       />
-      <div className="relative w-full max-w-md bg-gravity-light dark:bg-gravity-dark border border-gravity-border-light dark:border-gravity-border-dark rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in zoom-in duration-300">
-        <div className="p-8">
+      <div className="relative w-full max-w-md bg-gravity-light dark:bg-gravity-dark border border-gravity-border-light dark:border-gravity-border-dark rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] overflow-hidden animate-in fade-in zoom-in duration-300 max-h-[90vh]">
+        <div className="p-8 overflow-y-auto max-h-[90vh]">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-black tracking-tight text-gravity-text-main-light dark:text-gravity-text-main-dark">
               {mode === 'login' ? t('auth.welcomeBack') : t('auth.createAccount')}
