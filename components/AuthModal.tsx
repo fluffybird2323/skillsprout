@@ -221,6 +221,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               )}
             </button>
           </div>
+
+          <p className="text-center text-[11px] text-gravity-text-sub-light dark:text-gravity-text-sub-dark mt-4">
+            By continuing, you agree to our{' '}
+            <a href="/terms" target="_blank" className="underline hover:text-gravity-blue transition-colors">Terms of Service</a>
+            {' '}and{' '}
+            <a href="/privacy" target="_blank" className="underline hover:text-gravity-blue transition-colors">Privacy Policy</a>
+          </p>
         </div>
       </div>
     </div>,
