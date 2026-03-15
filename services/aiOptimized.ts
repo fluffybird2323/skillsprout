@@ -1,6 +1,8 @@
 import { Course, Unit, LessonContent, CourseDepth, UnitReferences, ReferenceMaterial } from "../types";
+import { UNIT_SAFE_COLORS } from './ai';
 import { withRetry } from "../utils/aiHelpers";
 import { buildSearchContext, formatSearchContext, hasRelevantResults } from "./webSearchMinimal";
+import { detectTopicCategory, getLessonTemplate, getQuestionCount } from "./webSearch";
 import i18n from '../lib/i18n';
 
 // Support both local development and production Cloud Function/Run deployments
@@ -10,9 +12,9 @@ const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT || '/api/ai';
  * Hybrid RAG lesson generation - pre-search + single optimized call
  */
 export async function generateLessonOptimized(
-  topic: string, 
+  topic: string,
   chapterTitle: string,
-  lessonType: 'quiz' | 'interactive' | 'resource' = 'quiz',
+  lessonType: 'quiz' = 'quiz',
   onPhaseUpdate?: (phase: string, message?: string) => void
 ): Promise<LessonContent> {
   
@@ -45,8 +47,7 @@ export async function generateLessonOptimized(
     // Single API call with built-in optimization
     const data = await withRetry(() => apiCall('generateLessonOptimized', payload));
     
-    // Direct mapping to LessonContent - no intermediate processing
-    return mapToLessonContent(data, lessonType);
+    return mapToLessonContent(data);
     
   } catch (error) {
     console.warn('Optimized generation failed, falling back to simple quiz', error);
@@ -59,13 +60,19 @@ export async function generateLessonOptimized(
  * Ultra-simple fallback lesson - generates in milliseconds
  */
 async function generateFallbackLesson(topic: string, chapterTitle: string): Promise<LessonContent> {
+  const options = [
+    i18n.t('lesson.fallback.optionA'),
+    i18n.t('lesson.fallback.optionB'),
+    i18n.t('lesson.fallback.optionC'),
+    i18n.t('lesson.fallback.optionD'),
+  ];
   const questions = [
     {
       id: `fallback-1`,
       type: 'multiple-choice' as const,
       question: i18n.t('lesson.fallback.question1', { chapter: chapterTitle }),
-      options: ['Option A', 'Option B', 'Option C', 'Option D'],
-      correctAnswer: 'Option A',
+      options,
+      correctAnswer: options[0],
       explanation: i18n.t('lesson.fallback.explanation1', { chapter: chapterTitle })
     },
     {
@@ -88,39 +95,16 @@ async function generateFallbackLesson(topic: string, chapterTitle: string): Prom
 /**
  * Direct data mapping - no processing overhead
  */
-function mapToLessonContent(data: any, lessonType: string): LessonContent {
-  const baseContent = {
+function mapToLessonContent(data: any): LessonContent {
+  return {
     chapterId: '',
-    type: lessonType as any,
-    intro: data.intro || i18n.t('lesson.fallback.defaultIntro', { topic: data.chapterTitle || 'this topic' })
+    type: 'quiz',
+    intro: data.intro || i18n.t('lesson.fallback.defaultIntro', { topic: data.chapterTitle || 'this topic' }),
+    questions: data.questions?.map((q: any, idx: number) => ({
+      ...q,
+      id: q.id || `q-${Date.now()}-${idx}`
+    })) || []
   };
-
-  if (lessonType === 'quiz') {
-    return {
-      ...baseContent,
-      questions: data.questions?.map((q: any, idx: number) => ({
-        ...q,
-        id: q.id || `q-${Date.now()}-${idx}`
-      })) || []
-    };
-  }
-
-  if (lessonType === 'interactive') {
-    return {
-      ...baseContent,
-      interactiveConfig: data.interactiveConfig || {
-        type: 'simulation',
-        instruction: i18n.t('interactive.defaultInstruction'),
-        feedback: i18n.t('interactive.defaultFeedback')
-      },
-      questions: data.questions?.map((q: any, idx: number) => ({
-        ...q,
-        id: q.id || `iq-${Date.now()}-${idx}`
-      })) || []
-    };
-  }
-
-  return baseContent as LessonContent;
 }
 
 /**
@@ -128,9 +112,8 @@ function mapToLessonContent(data: any, lessonType: string): LessonContent {
  */
 async function apiCall(action: string, payload: any, retryCount = 0): Promise<any> {
   try {
-    // Reduced timeout: 15 seconds instead of 30
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
@@ -166,44 +149,45 @@ async function apiCall(action: string, payload: any, retryCount = 0): Promise<an
   }
 }
 
-/**
- * Lightweight utility functions - no complex logic
- */
-function detectTopicCategory(topic: string, chapterTitle: string): string {
-  const title = `${topic} ${chapterTitle}`.toLowerCase();
-  
-  if (title.includes('code') || title.includes('programming') || title.includes('javascript')) return 'programming';
-  if (title.includes('math') || title.includes('algebra') || title.includes('calculus')) return 'mathematics';
-  if (title.includes('science') || title.includes('physics') || title.includes('chemistry')) return 'science';
-  if (title.includes('history') || title.includes('ancient') || title.includes('war')) return 'history';
-  
-  return 'general';
-}
-
-function getLessonTemplate(topic: string, chapterTitle: string): any {
-  const category = detectTopicCategory(topic, chapterTitle);
-  
-  return {
-    questionCount: category === 'programming' ? 4 : 3,
-    resourceTypes: ['article', 'documentation', 'tutorial']
-  };
-}
-
-function getQuestionCount(template: any): number {
-  return template?.questionCount || 3;
-}
 
 /**
  * Keep existing functions for compatibility
  */
 export async function generateCourseOutline(topic: string, depth: CourseDepth): Promise<Course> {
   const data = await withRetry(() => apiCall('generateCourseOutline', { topic, depth }));
-  return data.course;
+  const courseId = `course-${Date.now()}`;
+  const units: Unit[] = (data.units || []).map((u: any, uIdx: number) => ({
+    id: `u-${courseId}-${uIdx}`,
+    title: u.title,
+    description: u.description,
+    color: UNIT_SAFE_COLORS[uIdx % UNIT_SAFE_COLORS.length],
+    chapters: (u.chapters || []).map((c: any, cIdx: number) => ({
+      id: `c-${courseId}-${uIdx}-${cIdx}`,
+      title: c.title,
+      description: c.description,
+      status: (uIdx === 0 && cIdx === 0) ? 'active' : 'locked',
+      stars: 0
+    }))
+  }));
+  return { id: courseId, topic, depth, icon: data.icon || '📚', units, totalXp: 0 };
 }
 
 export async function generateUnitContent(topic: string, unitTitle: string, focus?: string): Promise<Unit> {
-  const data = await withRetry(() => apiCall('generateUnitContent', { topic, unitTitle, focus }));
-  return data.unit;
+  const u = await withRetry(() => apiCall('generateUnit', { topic, existingUnitCount: 0, focus }));
+  const unitIdSuffix = Date.now();
+  return {
+    id: `u-${unitIdSuffix}`,
+    title: u.title,
+    description: u.description,
+    color: UNIT_SAFE_COLORS[0],
+    chapters: (u.chapters || []).map((c: any, cIdx: number) => ({
+      id: `c-${unitIdSuffix}-${cIdx}`,
+      title: c.title,
+      description: c.description,
+      status: 'locked' as const,
+      stars: 0
+    }))
+  };
 }
 
 export async function generateUnitReferences(topic: string, unitTitle: string, chapterTitles: string[]): Promise<UnitReferences> {

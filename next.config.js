@@ -11,6 +11,7 @@ const nextConfig = {
     serverActions: {
       allowedOrigins: ['168.138.42.133', '168.138.42.133:3000', 'localhost:3000', 'manabu.artiestudio.org'],
     },
+    turbopackUseSystemTlsCerts: true,
   },
 
   // Configure compression
@@ -29,6 +30,8 @@ const nextConfig = {
     domains: [],
     unoptimized: false,
   },
+
+  turbopack: {},
 
   // Custom webpack configuration (if needed)
   webpack: (config, { isServer }) => {

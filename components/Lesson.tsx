@@ -4,10 +4,9 @@ import confetti from 'canvas-confetti';
 import { X, Heart, CheckCircle, AlertCircle, LayoutDashboard, BookOpen, RefreshCw } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Button } from './ui/Button';
-import { AppState } from '../types';
+import { AppState, Question } from '../types';
 import { storageValidator } from '../utils/storageValidation';
 import { storageRecovery } from '../services/storageRecovery';
-import { InteractiveStage } from './interactive/InteractiveStage';
 
 // Number of consecutive wrong answers before showing reference tip
 const WRONG_ANSWER_TIP_THRESHOLD = 2;
@@ -43,10 +42,16 @@ export const Lesson: React.FC = () => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [textAnswer, setTextAnswer] = useState('');
   const [status, setStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
-  const [stage, setStage] = useState<'intro' | 'interactive' | 'resource' | 'quiz' | 'complete'>('intro');
+  const [stage, setStage] = useState<'intro' | 'quiz' | 'complete' | 'failed'>('intro');
   const [consecutiveWrong, setConsecutiveWrong] = useState(0);
   const [showReferenceTip, setShowReferenceTip] = useState(false);
   const [shuffledOptions, setShuffledOptions] = useState<string[]>([]);
+  const [missedQuestions, setMissedQuestions] = useState<Question[]>([]);
+  const [inRevisionRound, setInRevisionRound] = useState(false);
+  const [revisionIndex, setRevisionIndex] = useState(0);
+  const [totalWrong, setTotalWrong] = useState(0);
+  const [pendingFail, setPendingFail] = useState(false);
+  const [totalCorrect, setTotalCorrect] = useState(0);
 
   useEffect(() => {
     const validateAndRecoverLesson = async () => {
@@ -113,14 +118,15 @@ export const Lesson: React.FC = () => {
   useEffect(() => {
     if (!currentLesson || !currentLesson.questions) return;
 
-    const question = currentLesson.questions[currentQuestionIndex];
-    if (question && question.type === 'multiple-choice' && question.options) {
-      // Shuffle options for display
-      setShuffledOptions(shuffleArray(question.options));
+    const q = inRevisionRound
+      ? missedQuestions[revisionIndex]
+      : currentLesson.questions[currentQuestionIndex];
+    if (q && q.type === 'multiple-choice' && q.options) {
+      setShuffledOptions(shuffleArray(q.options));
     } else {
       setShuffledOptions([]);
     }
-  }, [currentQuestionIndex, currentLesson]);
+  }, [currentQuestionIndex, currentLesson, inRevisionRound, revisionIndex]);
 
   if (!currentLesson) return null;
 
@@ -171,7 +177,9 @@ export const Lesson: React.FC = () => {
     );
   }
 
-  const question = currentLesson.questions[currentQuestionIndex];
+  const question = inRevisionRound
+    ? missedQuestions[revisionIndex]
+    : currentLesson.questions[currentQuestionIndex];
   if (!question) {
     console.error('Question not found at index:', currentQuestionIndex);
     return (
@@ -206,7 +214,9 @@ export const Lesson: React.FC = () => {
     );
   }
   
-  const progress = ((currentQuestionIndex) / currentLesson.questions.length) * 100;
+  const progress = inRevisionRound
+    ? ((revisionIndex + 1) / missedQuestions.length) * 100
+    : (currentQuestionIndex / currentLesson.questions.length) * 100;
 
   const handleCheck = () => {
     try {
@@ -244,8 +254,15 @@ export const Lesson: React.FC = () => {
 
       if (isCorrect) {
         setStatus('correct');
-        setConsecutiveWrong(0); // Reset streak on correct answer
+        setConsecutiveWrong(0);
         setShowReferenceTip(false);
+        // Correct answer in revision round redeems a pending failure
+        if (inRevisionRound && pendingFail) {
+          setPendingFail(false);
+        }
+        if (!inRevisionRound) {
+          setTotalCorrect(prev => prev + 1);
+        }
         try {
           const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3');
           sound.volume = 0.2;
@@ -263,7 +280,23 @@ export const Lesson: React.FC = () => {
           setShowReferenceTip(true);
         }
 
-        if (!store.isReviewSession) store.loseHeart();
+        // Queue for revision if not fill-blank and not already in revision round
+        if (question.type !== 'fill-blank' && !inRevisionRound) {
+          setMissedQuestions(prev =>
+            prev.some(q => q.id === question.id) ? prev : [...prev, question]
+          );
+        }
+
+        // Track total wrongs — fail after 3 (original round only)
+        if (!inRevisionRound) {
+          const newTotalWrong = totalWrong + 1;
+          setTotalWrong(newTotalWrong);
+          if (newTotalWrong > 3) {
+            setPendingFail(true);
+          }
+        }
+
+        if (!store.isReviewSession && question.type !== 'fill-blank') store.loseHeart();
         try {
           const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3');
           sound.volume = 0.2;
@@ -284,14 +317,32 @@ export const Lesson: React.FC = () => {
       setStatus('idle');
       setSelectedOption(null);
       setTextAnswer('');
-      if (currentQuestionIndex < currentLesson.questions.length - 1) {
-        setCurrentQuestionIndex(prev => prev + 1);
+
+      if (pendingFail) {
+        setStage('failed');
+        return;
+      }
+
+      if (inRevisionRound) {
+        if (revisionIndex < missedQuestions.length - 1) {
+          setRevisionIndex(prev => prev + 1);
+        } else {
+          finishLesson();
+        }
       } else {
-        finishLesson();
+        if (currentQuestionIndex < currentLesson.questions.length - 1) {
+          setCurrentQuestionIndex(prev => prev + 1);
+        } else {
+          if (missedQuestions.length > 0) {
+            setInRevisionRound(true);
+            setRevisionIndex(0);
+          } else {
+            finishLesson();
+          }
+        }
       }
     } catch (error) {
       console.error('Error in handleNext:', error);
-      // Fallback: return to roadmap on error
       setAppState(AppState.ROADMAP);
     }
   };
@@ -328,18 +379,31 @@ export const Lesson: React.FC = () => {
   };
 
   const startActualLesson = () => {
-    if (currentLesson.type === 'interactive' && currentLesson.interactiveConfig) {
-       setStage('interactive');
-    } else {
-       setStage('quiz');
-    }
+    setStage('quiz');
+  };
+
+  const retryLesson = () => {
+    setCurrentQuestionIndex(0);
+    setSelectedOption(null);
+    setTextAnswer('');
+    setStatus('idle');
+    setConsecutiveWrong(0);
+    setShowReferenceTip(false);
+    setShuffledOptions([]);
+    setMissedQuestions([]);
+    setInRevisionRound(false);
+    setRevisionIndex(0);
+    setTotalWrong(0);
+    setPendingFail(false);
+    setTotalCorrect(0);
+    setStage('quiz');
   };
 
   if (stage === 'intro') {
      return (
         <div className="min-h-screen flex flex-col p-6 items-center justify-center text-center max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
            <h2 className="text-2xl font-black text-blue-600 mb-6 uppercase tracking-wider">
-              {currentLesson.type === 'interactive' ? t('lesson.interactiveModule') : t('lesson.knowledgeDownload')}
+              {t('lesson.knowledgeDownload')}
            </h2>
            <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl mb-12 shadow-xl border border-gray-200 dark:border-gray-600">
              <p className="text-lg text-gray-900 dark:text-gray-100 leading-relaxed font-medium">
@@ -352,49 +416,92 @@ export const Lesson: React.FC = () => {
   }
 
 
-  if (stage === 'interactive' && currentLesson.interactiveConfig) {
-     return (
-        <div className="h-screen p-4 flex flex-col overflow-hidden">
-            <div className="mb-4 flex items-center justify-between shrink-0">
-               <button onClick={() => setAppState(AppState.ROADMAP)}><X className="text-gray-500 dark:text-gray-400 hover:text-red-500" /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-               <InteractiveStage config={currentLesson.interactiveConfig} onComplete={() => setStage('quiz')} />
-            </div>
+
+  if (stage === 'failed') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="mb-8">
+          <div className="w-32 h-32 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl border border-red-200 dark:border-red-800">
+            <AlertCircle className="w-16 h-16 text-red-500" />
+          </div>
+          <h1 className="text-4xl font-black text-gray-900 dark:text-gray-100 mb-3 tracking-tight">{t('lesson.lessonFailed')}</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-medium max-w-xs mx-auto">{t('lesson.failedDescription')}</p>
+          <div className="mt-6 inline-flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 px-4 py-2 rounded-full text-sm font-bold">
+            <AlertCircle className="w-4 h-4" />
+            {totalWrong} {t('lesson.wrongAnswers')}
+          </div>
         </div>
-     );
+
+        <div className="w-full max-w-sm space-y-3">
+          <Button fullWidth size="lg" onClick={retryLesson} className="shadow-lg shadow-blue-500/30">
+            <RefreshCw className="w-5 h-5 mr-2" /> {t('lesson.tryAgain')}
+          </Button>
+          <Button fullWidth variant="outline" onClick={() => setAppState(AppState.ROADMAP)}>
+            <LayoutDashboard className="w-5 h-5 mr-2" /> {t('lesson.returnMap')}
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (stage === 'complete') {
-      return (
-          <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-              <div className="mb-8 animate-bounce">
-                 <div className="w-32 h-32 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl border border-green-200">
-                    <CheckCircle className="w-16 h-16 text-green-600" />
-                 </div>
-                 <h1 className="text-4xl font-black text-gray-900 dark:text-gray-100 mb-2 tracking-tight">{t('lesson.complete')}</h1>
-                 <p className="text-xl text-gravity-success font-bold">+{10 + (3 * 5)} XP</p>
-              </div>
+    const totalQuestions = currentLesson.questions.length;
+    const correctCount = totalCorrect;
+    const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 100;
+    const xpEarned = 10 + (3 * 5);
 
-              <div className="w-full max-w-sm space-y-4">
-                 <Button 
-                   fullWidth 
-                   variant="primary" 
-                   onClick={() => {
-                     try {
-                       setAppState(AppState.ROADMAP);
-                     } catch (error) {
-                       console.error('Failed to return to roadmap:', error);
-                       // Fallback: reload the page if state transition fails
-                       window.location.reload();
-                     }
-                   }}
-                 >
-                    <LayoutDashboard className="w-5 h-5 mr-2" /> {t('lesson.returnMap')}
-                 </Button>
-              </div>
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-green-50 via-white to-white dark:from-green-950/30 dark:via-gray-900 dark:to-gray-900 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
+
+          {/* Icon + XP badge */}
+          <div className="relative mb-8">
+            <div className="absolute inset-0 rounded-full bg-green-400/25 blur-3xl scale-150 pointer-events-none" />
+            <div className="relative w-36 h-36 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center shadow-2xl shadow-green-500/40 mx-auto">
+              <CheckCircle className="w-20 h-20 text-white" strokeWidth={2.5} />
+            </div>
+            <div className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 font-black text-sm px-3 py-1.5 rounded-full shadow-lg border-2 border-white dark:border-gray-900 whitespace-nowrap">
+              +{xpEarned} XP
+            </div>
           </div>
-      )
+
+          {/* Title */}
+          <h1 className="text-5xl font-black text-gray-900 dark:text-gray-100 mb-2 tracking-tight">{t('lesson.complete')}</h1>
+          <p className="text-gray-400 dark:text-gray-500 font-medium mb-10 text-sm uppercase tracking-widest">{t('lesson.completeSubtitle')}</p>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3 w-full max-w-sm mb-10">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="text-2xl font-black text-emerald-500 mb-0.5">{accuracy}%</div>
+              <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">{t('lesson.accuracy')}</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="text-2xl font-black text-blue-500 mb-0.5">{correctCount}<span className="text-gray-300 dark:text-gray-600">/{totalQuestions}</span></div>
+              <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">{t('lesson.correct')}</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="text-2xl font-black text-orange-500 mb-0.5">🔥{store.streak}</div>
+              <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">{t('lesson.streak')}</div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="w-full max-w-sm">
+            <Button
+              fullWidth
+              size="lg"
+              onClick={() => {
+                try { setAppState(AppState.ROADMAP); }
+                catch { window.location.reload(); }
+              }}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 border-transparent text-white shadow-lg shadow-green-500/30 hover:from-green-600 hover:to-emerald-700"
+            >
+              <LayoutDashboard className="w-5 h-5 mr-2" /> {t('lesson.returnMap')}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -404,8 +511,8 @@ export const Lesson: React.FC = () => {
           <X className="text-gray-500 dark:text-gray-400 w-6 h-6 hover:bg-black/5 rounded-full" />
         </button>
         <div className="flex-1 h-3 bg-white dark:bg-gray-800 rounded-full overflow-hidden border border-gray-200 dark:border-gray-600">
-          <div 
-            className="h-full bg-green-600 transition-all duration-500 ease-out"
+          <div
+            className={`h-full transition-all duration-500 ease-out ${inRevisionRound ? 'bg-amber-500' : 'bg-green-600'}`}
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -416,6 +523,17 @@ export const Lesson: React.FC = () => {
           </div>
         )}
       </div>
+
+      {inRevisionRound && (
+        <div className="px-4 pb-2 shrink-0">
+          <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl px-3 py-2">
+            <RefreshCw className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+              {t('lesson.revisionRound')} · {revisionIndex + 1}/{missedQuestions.length}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col px-4 overflow-y-auto pb-48">
         <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-6 mt-4 uppercase tracking-widest">

@@ -47,7 +47,7 @@ export default {
   },
   common: {
     loading: "Loading...",
-    initializing: "Initializing Protocol",
+    initializing: "Building a Path",
     error: "Error",
     retry: "Retry",
     cancel: "Cancel",
@@ -191,7 +191,11 @@ export default {
       question1: "What is the main concept of {{chapter}}?",
       question2: "The key principle of {{topic}} is ___.",
       explanation1: "This question helps assess understanding of {{chapter}}.",
-      explanation2: "This tests recall of fundamental concepts."
+      explanation2: "This tests recall of fundamental concepts.",
+      optionA: "Option A",
+      optionB: "Option B",
+      optionC: "Option C",
+      optionD: "Option D"
     },
     error: "Lesson Error",
     corrupted: "This lesson appears to be incomplete or corrupted.",
@@ -216,6 +220,14 @@ export default {
     incorrect: "Incorrect",
     correctAnswer: "Correct Answer: ",
     tip: "Tip:",
+    revisionRound: "Revision Round",
+    completeSubtitle: "Keep up the momentum",
+    accuracy: "Accuracy",
+    streak: "Day Streak",
+    lessonFailed: "Lesson Failed",
+    failedDescription: "Too many wrong answers. Review the material and try again.",
+    wrongAnswers: "wrong answers",
+    tryAgain: "Try Again",
     tipDescription: "Having trouble? Check the unit's reference materials for additional learning resources."
   },
   roadmap: {
@@ -237,6 +249,7 @@ export default {
     unit: "Unit",
     referenceMaterials: "Reference Materials",
     extending: "Extending...",
+    completeToExtend: "Complete path to extend",
     extendPath: "Extend Path",
     thinking: "Thinking...",
     whereNext: "Where to next?",

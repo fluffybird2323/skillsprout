@@ -89,7 +89,10 @@ class LessonCacheService {
     }
   }
 
-  generateLessonKey(topic: string, chapterTitle: string, type: string = 'quiz'): string {
+  generateLessonKey(topic: string, chapterTitle: string, type: string = 'quiz', chapterId?: string): string {
+    // Prefer chapterId as the primary key — it's unique per chapter regardless of title.
+    // Falls back to topic:title for backwards compatibility with entries cached without an ID.
+    if (chapterId) return `${chapterId}:${type}`;
     return `${topic.toLowerCase().trim()}:${chapterTitle.toLowerCase().trim()}:${type}`;
   }
 
@@ -98,7 +101,7 @@ class LessonCacheService {
   }
 
   async getCachedLesson(topic: string, chapterTitle: string, type?: string, chapterId?: string): Promise<LessonContent | null> {
-    const key = this.generateLessonKey(topic, chapterTitle, type);
+    const key = this.generateLessonKey(topic, chapterTitle, type, chapterId);
     const now = Date.now();
 
     // Check memory cache first
@@ -180,8 +183,8 @@ class LessonCacheService {
     return null;
   }
 
-  async cacheLesson(topic: string, chapterTitle: string, content: LessonContent, type?: string): Promise<void> {
-    const key = this.generateLessonKey(topic, chapterTitle, type);
+  async cacheLesson(topic: string, chapterTitle: string, content: LessonContent, type?: string, chapterId?: string): Promise<void> {
+    const key = this.generateLessonKey(topic, chapterTitle, type, chapterId);
     const now = Date.now();
 
     const cachedLesson: CachedLesson = {

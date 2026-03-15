@@ -49,13 +49,13 @@ sudo journalctl -u manabu -f
 
 **Service Commands:**
 ```bash
-sudo systemctl start manabu      # Start
-sudo systemctl stop manabu       # Stop
-sudo systemctl restart manabu    # Restart
-sudo systemctl status manabu     # Status
-sudo systemctl enable manabu     # Auto-start on boot
-sudo systemctl disable manabu    # Don't auto-start
-sudo journalctl -u manabu -f     # Follow logs
+sudo systemctl start skillsprout      # Start
+sudo systemctl stop skillsprout       # Stop
+sudo systemctl restart skillsprout    # Restart
+sudo systemctl status skillsprout     # Status
+sudo systemctl enable skillsprout     # Auto-start on boot
+sudo systemctl disable skillsprout    # Don't auto-start
+sudo journalctl -u skillsprout -f     # Follow logs
 ```
 
 ---
@@ -96,8 +96,8 @@ npm -v
 
 ```bash
 # Clone repository
-git clone <your-repo-url> /home/manabu/app
-cd /home/manabu/app
+git clone <your-repo-url> /home/skillsprout/app
+cd /home/skillsprout/app
 
 # Install dependencies
 npm install
@@ -138,7 +138,7 @@ EOF
 ### Method 1: Direct Startup
 
 ```bash
-cd /home/manabu/app
+cd /home/skillsprout/app
 
 # Development
 npm run dev
@@ -151,7 +151,7 @@ npm start
 ### Method 2: Using Startup Script
 
 ```bash
-cd /home/manabu/app
+cd /home/skillsprout/app
 
 # Default (port 3000)
 ./start-prod-arm.sh
@@ -170,9 +170,9 @@ cd /home/manabu/app
 sudo ./setup-systemd-arm.sh
 
 # Then manage with:
-sudo systemctl start manabu
-sudo systemctl status manabu
-sudo journalctl -u manabu -f
+sudo systemctl start skillsprout
+sudo systemctl status skillsprout
+sudo journalctl -u skillsprout -f
 ```
 
 ---
@@ -204,7 +204,7 @@ curl http://localhost:3000/api/health
 tail -f logs/prod-server.log
 
 # Using systemd
-sudo journalctl -u manabu -f
+sudo journalctl -u skillsprout -f
 
 # Using npm (live output)
 npm start
@@ -233,7 +233,7 @@ For remote access on Orange Cloud/AWS/etc:
 sudo ufw allow 22/tcp      # SSH
 sudo ufw allow 80/tcp      # HTTP
 sudo ufw allow 443/tcp     # HTTPS
-sudo ufw allow 3000/tcp    # Manabu
+sudo ufw allow 3000/tcp    # SkillSprout
 sudo ufw enable
 
 # Or iptables
@@ -248,12 +248,12 @@ sudo iptables-save | sudo tee /etc/iptables/rules.v4
 sudo apt-get install -y nginx
 
 # Create config
-sudo nano /etc/nginx/sites-available/manabu
+sudo nano /etc/nginx/sites-available/skillsprout
 ```
 
 Add this configuration:
 ```nginx
-upstream manabu {
+upstream skillsprout {
     server 127.0.0.1:3000;
 }
 
@@ -263,7 +263,7 @@ server {
     server_name _;
 
     location / {
-        proxy_pass http://manabu;
+        proxy_pass http://skillsprout;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -275,7 +275,7 @@ server {
 
 Enable it:
 ```bash
-sudo ln -s /etc/nginx/sites-available/manabu /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/skillsprout /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 ```
@@ -362,7 +362,7 @@ cat .env.local
 # - Gemini: https://aistudio.google.com/app/apikey
 
 # Restart server after updating
-sudo systemctl restart manabu
+sudo systemctl restart skillsprout
 ```
 
 ### Memory Issues on ARM
@@ -395,7 +395,7 @@ NEXT_TELEMETRY_DISABLED=1 npm start
 
 # Use PM2 for process management
 npm install -g pm2
-pm2 start npm --name "manabu" -- start
+pm2 start npm --name "skillsprout" -- start
 pm2 startup
 pm2 save
 ```
@@ -404,7 +404,7 @@ pm2 save
 
 ```bash
 # Use PM2 cluster mode
-pm2 start npm --name "manabu" -i max -- start
+pm2 start npm --name "skillsprout" -i max -- start
 
 # Or use multiple workers with Nginx
 # (see Nginx section above)
@@ -429,7 +429,7 @@ pm2 start npm --name "manabu" -i max -- start
 
 ## 🎉 Success!
 
-Your Manabu production server is ready!
+Your SkillSprout production server is ready!
 
 **Access it at:**
 ```

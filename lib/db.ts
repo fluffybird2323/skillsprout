@@ -15,7 +15,7 @@ db.exec(`
     emoji TEXT DEFAULT '👤',
     xp INTEGER DEFAULT 0,
     streak INTEGER DEFAULT 0,
-    hearts INTEGER DEFAULT 5,
+    hearts INTEGER DEFAULT 10,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -57,5 +57,42 @@ try {
 try {
   db.exec(`ALTER TABLE courses ADD COLUMN generated_by_name TEXT`);
 } catch (e) {}
+
+// Migration: Add google_id for OAuth support
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN google_id TEXT`);
+} catch (e) {}
+try {
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL`);
+} catch (e) {}
+
+// Migration: Add x_id for X (Twitter) OAuth support
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN x_id TEXT`);
+} catch (e) {}
+try {
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_x_id ON users(x_id) WHERE x_id IS NOT NULL`);
+} catch (e) {}
+
+// Migration: Add last_login_at for inactivity tracking
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN last_login_at DATETIME`);
+} catch (e) {}
+
+// Auto-delete accounts inactive for 180+ days (cascades to progress)
+try {
+  db.exec(`
+    DELETE FROM user_progress WHERE user_id IN (
+      SELECT id FROM users
+      WHERE (last_login_at IS NULL AND created_at < datetime('now', '-180 days'))
+         OR last_login_at < datetime('now', '-180 days')
+    );
+    DELETE FROM users
+    WHERE (last_login_at IS NULL AND created_at < datetime('now', '-180 days'))
+       OR last_login_at < datetime('now', '-180 days');
+  `);
+} catch (e) {
+  console.warn('Inactive account cleanup error:', e);
+}
 
 export default db;

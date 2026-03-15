@@ -65,17 +65,35 @@ async function apiCall(action: string, payload: any, retryCount = 0) {
   }
 }
 
+// --- Safe color palette for unit headers ---
+// All colors are medium-brightness Tailwind 500-level hues that read well
+// as both text and borders on light (bg-gray-50) and dark (bg-gray-800) backgrounds.
+export const UNIT_SAFE_COLORS = [
+  '#3B82F6', // blue
+  '#8B5CF6', // violet
+  '#EC4899', // pink
+  '#EF4444', // red
+  '#F59E0B', // amber
+  '#10B981', // emerald
+  '#06B6D4', // cyan
+  '#F97316', // orange
+  '#D946EF', // fuchsia / magenta
+  '#6366F1', // indigo
+  '#14B8A6', // teal
+  '#A855F7', // purple
+];
+
 // --- Public Interface (Matches old service signatures) ---
 
 export async function generateCourseOutline(topic: string, depth: CourseDepth): Promise<Course> {
   const data = await withRetry(() => apiCall('generateCourseOutline', { topic, depth }));
-  
+
   const courseId = `course-${Date.now()}`;
   const units: Unit[] = (data.units || []).map((u: any, uIdx: number) => ({
     id: `u-${courseId}-${uIdx}`,
     title: u.title,
     description: u.description,
-    color: u.color || '#58cc02',
+    color: UNIT_SAFE_COLORS[uIdx % UNIT_SAFE_COLORS.length],
     chapters: (u.chapters || []).map((c: any, cIdx: number) => ({
       id: `c-${courseId}-${uIdx}-${cIdx}`,
       title: c.title,
@@ -117,7 +135,7 @@ export async function generateUnit(topic: string, existingUnitCount: number, foc
     id: `u-${unitIdSuffix}`,
     title: u.title,
     description: u.description,
-    color: u.color || '#ce82ff',
+    color: UNIT_SAFE_COLORS[existingUnitCount % UNIT_SAFE_COLORS.length],
     chapters: (u.chapters || []).map((c: any, cIdx: number) => ({
       id: `c-${unitIdSuffix}-${cIdx}`,
       title: c.title,
@@ -142,32 +160,6 @@ export async function generateLessonContent(topic: string, chapterTitle: string)
   };
 }
 
-export async function generateInteractiveLesson(topic: string, chapterTitle: string): Promise<LessonContent> {
-  try {
-    const data = await withRetry(() => apiCall('generateInteractiveLesson', { topic, chapterTitle }));
-
-    return {
-      chapterId: '',
-      type: 'interactive',
-      intro: data.intro,
-      interactiveConfig: {
-        type: data.widgetType,
-        instruction: data.instruction,
-        feedback: data.feedback,
-        params: data.simulationParams,
-        items: data.sortingItems,
-        backgroundImage: data.canvasBackground
-      },
-      questions: data.quizQuestions.map((q: any, idx: number) => ({
-        ...q,
-        id: `iq-${Date.now()}-${idx}`
-      }))
-    };
-  } catch (e) {
-    console.warn("Interactive generation failed, falling back to standard lesson", e);
-    return generateLessonContent(topic, chapterTitle);
-  }
-}
 
 export async function editImageWithGemini(base64Image: string, mimeType: string, prompt: string): Promise<string> {
   // We can increase the timeout for image generation if needed, but withRetry handles typical glitches

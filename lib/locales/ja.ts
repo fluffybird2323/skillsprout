@@ -47,7 +47,7 @@ export default {
   },
   common: {
     loading: "読み込み中...",
-    initializing: "プロトコルを初期化中",
+    initializing: "ルートを作成中",
     error: "エラー",
     retry: "再試行",
     cancel: "キャンセル",
@@ -191,7 +191,11 @@ export default {
       question1: "{{chapter}} の主要な概念は何ですか？",
       question2: "{{topic}} の基本原則は ___ です。",
       explanation1: "この質問は {{chapter}} の理解度を評価するのに役立ちます。",
-      explanation2: "これは基本概念の想起をテストします。"
+      explanation2: "これは基本概念の想起をテストします。",
+      optionA: "選択肢 A",
+      optionB: "選択肢 B",
+      optionC: "選択肢 C",
+      optionD: "選択肢 D"
     },
     error: "レッスンエラー",
     corrupted: "このレッスンは不完全か、破損している可能性があります。",
@@ -216,6 +220,14 @@ export default {
     incorrect: "不正解",
     correctAnswer: "正解: ",
     tip: "ヒント:",
+    revisionRound: "復習ラウンド",
+    completeSubtitle: "この調子で続けよう",
+    accuracy: "正解率",
+    streak: "連続日数",
+    lessonFailed: "レッスン失敗",
+    failedDescription: "間違いが多すぎます。内容を見直してもう一度挑戦しましょう。",
+    wrongAnswers: "問不正解",
+    tryAgain: "もう一度試す",
     tipDescription: "お困りですか？ユニットの参考資料をチェックして、追加の学習リソースを確認しましょう。"
   },
   roadmap: {
@@ -237,6 +249,7 @@ export default {
     unit: "ユニット",
     referenceMaterials: "参考資料",
     extending: "拡張中...",
+    completeToExtend: "パスを完了して拡張",
     extendPath: "パスを拡張",
     thinking: "思考中...",
     whereNext: "次はどこへ？",

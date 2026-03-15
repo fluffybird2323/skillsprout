@@ -47,7 +47,7 @@ export default {
   },
   common: {
     loading: "Chargement...",
-    initializing: "Initialisation du protocole",
+    initializing: "Construction d'un chemin",
     error: "Erreur",
     retry: "Réessayer",
     cancel: "Annuler",
@@ -191,7 +191,11 @@ export default {
       question1: "Quel est le concept principal de {{chapter}} ?",
       question2: "Le principe clé de {{topic}} est ___.",
       explanation1: "Cette question permet d'évaluer la compréhension de {{chapter}}.",
-      explanation2: "Ceci teste le rappel des concepts fondamentaux."
+      explanation2: "Ceci teste le rappel des concepts fondamentaux.",
+      optionA: "Option A",
+      optionB: "Option B",
+      optionC: "Option C",
+      optionD: "Option D"
     },
     error: "Erreur de leçon",
     corrupted: "Cette leçon semble incomplète ou corrompue.",
@@ -216,6 +220,14 @@ export default {
     incorrect: "Incorrect",
     correctAnswer: "Bonne réponse : ",
     tip: "Conseil :",
+    revisionRound: "Tour de révision",
+    completeSubtitle: "Continuez comme ça",
+    accuracy: "Précision",
+    streak: "Série du jour",
+    lessonFailed: "Leçon échouée",
+    failedDescription: "Trop de mauvaises réponses. Révisez le contenu et réessayez.",
+    wrongAnswers: "mauvaises réponses",
+    tryAgain: "Réessayer",
     tipDescription: "Vous avez des difficultés ? Consultez le matériel de référence de l'unité pour des ressources d'apprentissage supplémentaires."
   },
   roadmap: {
@@ -237,6 +249,7 @@ export default {
     unit: "Unité",
     referenceMaterials: "Matériel de référence",
     extending: "Extension...",
+    completeToExtend: "Completez le chemin pour étendre",
     extendPath: "Étendre le chemin",
     thinking: "Réflexion...",
     whereNext: "Quelle est la prochaine étape ?",

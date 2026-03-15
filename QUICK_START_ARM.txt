@@ -61,10 +61,10 @@ npm run build
    └─ Auto-restart, logging, persistence
    └─ Usage: sudo ./setup-systemd-arm.sh [app_path] [port]
    └─ Commands:
-        sudo systemctl start manabu    # Start
-        sudo systemctl stop manabu     # Stop
-        sudo systemctl restart manabu  # Restart
-        sudo journalctl -u manabu -f   # View logs
+        sudo systemctl start skillsprout    # Start
+        sudo systemctl stop skillsprout     # Stop
+        sudo systemctl restart skillsprout  # Restart
+        sudo journalctl -u skillsprout -f   # View logs
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  🔑 API KEYS SETUP
@@ -118,13 +118,13 @@ lsof -i :3000
 tail -f logs/prod-server.log
 
 # View logs (systemd service)
-sudo journalctl -u manabu -f
+sudo journalctl -u skillsprout -f
 
 # Restart server (systemd)
-sudo systemctl restart manabu
+sudo systemctl restart skillsprout
 
 # Enable auto-start on boot
-sudo systemctl enable manabu
+sudo systemctl enable skillsprout
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  🌐 ACCESSING YOUR SERVER

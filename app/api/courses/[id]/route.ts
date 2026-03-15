@@ -3,10 +3,11 @@ import db from '@/lib/db';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const courseRow: any = db.prepare('SELECT data, generated_by_name FROM courses WHERE id = ?').get(params.id);
+    const { id } = await params;
+    const courseRow: any = db.prepare('SELECT data, generated_by_name FROM courses WHERE id = ?').get(id);
     
     if (!courseRow) {
       return NextResponse.json({ error: 'Course not found' }, { status: 404 });

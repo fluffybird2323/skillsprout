@@ -5,8 +5,51 @@ import { AppState } from '../types';
 
 export const Splash: React.FC = () => {
     const { t } = useTranslation();
-    const { setAppState, user } = useStore();
+    const { setAppState, user, login } = useStore();
     const [phase, setPhase] = useState(0);
+
+    // Daily heart refill — on launch and at midnight if app stays open
+    useEffect(() => {
+        useStore.getState().checkAndRefillHearts();
+
+        // Schedule next refill at midnight
+        const now = new Date();
+        const midnight = new Date(now);
+        midnight.setDate(midnight.getDate() + 1);
+        midnight.setHours(0, 0, 0, 0);
+        const msUntilMidnight = midnight.getTime() - now.getTime();
+
+        const timer = setTimeout(() => {
+            useStore.getState().checkAndRefillHearts();
+        }, msUntilMidnight);
+
+        return () => clearTimeout(timer);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Consume OAuth redirect params (Google, X, etc.)
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+
+        const tokenParam = params.get('google_token') ?? params.get('x_token');
+        const refreshParam = params.get('google_refresh') ?? params.get('x_refresh');
+        const userParam = params.get('google_user') ?? params.get('x_user');
+
+        if (tokenParam && userParam) {
+            try {
+                const userData = JSON.parse(decodeURIComponent(userParam));
+                login(userData, tokenParam, refreshParam ?? undefined);
+            } catch (e) {
+                console.warn('Failed to parse OAuth params', e);
+            }
+            window.history.replaceState({}, '', '/');
+        }
+
+        const authError = params.get('auth_error');
+        if (authError) {
+            console.warn('OAuth error:', authError);
+            window.history.replaceState({}, '', '/');
+        }
+    }, [login]);
 
     useEffect(() => {
         const timers = [
@@ -17,7 +60,12 @@ export const Splash: React.FC = () => {
                 // After 4-5s, check auth and transition
                 setTimeout(() => {
                     if (user) {
-                        setAppState(AppState.ROADMAP);
+                        // If logged in but no courses, go to onboarding
+                        if (useStore.getState().courses.length === 0) {
+                            setAppState(AppState.ONBOARDING);
+                        } else {
+                            setAppState(AppState.ROADMAP);
+                        }
                     } else {
                         setAppState(AppState.AUTH_REQUIRED);
                     }
@@ -30,7 +78,12 @@ export const Splash: React.FC = () => {
 
     const skipSplash = () => {
         if (user) {
-            setAppState(AppState.ROADMAP);
+            // If logged in but no courses, go to onboarding
+            if (useStore.getState().courses.length === 0) {
+                setAppState(AppState.ONBOARDING);
+            } else {
+                setAppState(AppState.ROADMAP);
+            }
         } else {
             setAppState(AppState.AUTH_REQUIRED);
         }

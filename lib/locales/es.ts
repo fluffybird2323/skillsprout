@@ -47,7 +47,7 @@ export default {
   },
   common: {
     loading: "Cargando...",
-    initializing: "Inicializando Protocolo",
+    initializing: "Construyendo un camino",
     error: "Error",
     retry: "Reintentar",
     cancel: "Cancelar",
@@ -191,7 +191,11 @@ export default {
       question1: "¿Cuál es el concepto principal de {{chapter}}?",
       question2: "El principio clave de {{topic}} es ___.",
       explanation1: "Esta pregunta ayuda a evaluar la comprensión de {{chapter}}.",
-      explanation2: "Esto pone a prueba el recuerdo de conceptos fundamentales."
+      explanation2: "Esto pone a prueba el recuerdo de conceptos fundamentales.",
+      optionA: "Opción A",
+      optionB: "Opción B",
+      optionC: "Opción C",
+      optionD: "Opción D"
     },
     error: "Error de Lección",
     corrupted: "Esta lección parece estar incompleta o corrupta.",
@@ -216,6 +220,14 @@ export default {
     incorrect: "Incorrecto",
     correctAnswer: "Respuesta Correcta: ",
     tip: "Consejo:",
+    revisionRound: "Ronda de revisión",
+    completeSubtitle: "Sigue así",
+    accuracy: "Precisión",
+    streak: "Racha diaria",
+    lessonFailed: "Lección fallida",
+    failedDescription: "Demasiadas respuestas incorrectas. Revisa el material e inténtalo de nuevo.",
+    wrongAnswers: "respuestas incorrectas",
+    tryAgain: "Intentar de nuevo",
     tipDescription: "¿Tienes problemas? Consulta los materiales de referencia de la unidad para obtener recursos de aprendizaje adicionales."
   },
   roadmap: {
@@ -237,6 +249,7 @@ export default {
     unit: "Unidad",
     referenceMaterials: "Materiales de Referencia",
     extending: "Extendiendo...",
+    completeToExtend: "Completa el camino para extender",
     extendPath: "Extender Ruta",
     thinking: "Pensando...",
     whereNext: "¿Hacia dónde ahora?",

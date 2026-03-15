@@ -50,23 +50,23 @@ Restart service:
     sudo systemctl restart manabu
 
 Check status:
-    sudo systemctl status manabu
+    sudo systemctl status skillsprout
 
 View logs (live):
-    sudo journalctl -u manabu -f
+    sudo journalctl -u skillsprout -f
 
 View last 50 logs:
-    sudo journalctl -u manabu -n 50
+    sudo journalctl -u skillsprout -n 50
 
 Enable auto-start on boot:
-    sudo systemctl enable manabu
+    sudo systemctl enable skillsprout
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  🔍 VERIFICATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Check if running:
-    sudo systemctl is-active manabu
+    sudo systemctl is-active skillsprout
 
 Check port:
     sudo lsof -i :3000
@@ -98,13 +98,13 @@ Open port with iptables:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Service won't start:
-    └─ Check logs: sudo journalctl -u manabu -n 50
-    └─ Verify API keys: sudo nano /home/manabu/app/.env.local
-    └─ Check build: ls -la /home/manabu/app/.next/
+    └─ Check logs: sudo journalctl -u skillsprout -n 50
+    └─ Verify API keys: sudo nano /home/skillsprout/app/.env.local
+    └─ Check build: ls -la /home/skillsprout/app/.next/
 
 Out of memory:
     └─ Check swap: free -h
-    └─ Restart service: sudo systemctl restart manabu
+    └─ Restart service: sudo systemctl restart skillsprout
 
 Port already in use:
     └─ Find process: sudo lsof -i :3000
@@ -112,38 +112,38 @@ Port already in use:
 
 Can't access from browser:
     └─ Check firewall: sudo ufw status
-    └─ Check service: sudo systemctl status manabu
+    └─ Check service: sudo systemctl status skillsprout
     └─ Check port: sudo netstat -tlnp | grep 3000
 
 Build failed:
     └─ Clear and rebuild:
-        cd /home/manabu/app
-        sudo -u manabu rm -rf .next node_modules
-        sudo -u manabu npm install
-        sudo -u manabu npm run build
+        cd /home/skillsprout/app
+        sudo -u skillsprout rm -rf .next node_modules
+        sudo -u skillsprout npm install
+        sudo -u skillsprout npm run build
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  🔄 UPDATE APP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Quick update:
-    sudo systemctl stop manabu
-    cd /home/manabu/app
-    sudo -u manabu git pull
-    sudo -u manabu npm install
-    sudo -u manabu npm run build
-    sudo systemctl start manabu
-    sudo systemctl status manabu
+    sudo systemctl stop skillsprout
+    cd /home/skillsprout/app
+    sudo -u skillsprout git pull
+    sudo -u skillsprout npm install
+    sudo -u skillsprout npm run build
+    sudo systemctl start skillsprout
+    sudo systemctl status skillsprout
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  📂 FILE LOCATIONS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-App directory:       /home/manabu/app/
-Environment file:    /home/manabu/app/.env.local
-Service file:        /etc/systemd/system/manabu.service
+App directory:       /home/skillsprout/app/
+Environment file:    /home/skillsprout/app/.env.local
+Service file:        /etc/systemd/system/skillsprout.service
 Swap file:           /swapfile (2GB)
-Logs:                sudo journalctl -u manabu
+Logs:                sudo journalctl -u skillsprout
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  💾 MEMORY OPTIMIZATIONS
@@ -166,13 +166,13 @@ Expected performance:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 □ Deployment script completed without errors
-□ API keys added to /home/manabu/app/.env.local
-□ Service is running: sudo systemctl status manabu
+□ API keys added to /home/skillsprout/app/.env.local
+□ Service is running: sudo systemctl status skillsprout
 □ Port 3000 is open in firewall
 □ Can access http://YOUR_SERVER_IP:3000
-□ No errors in logs: sudo journalctl -u manabu -n 20
+□ No errors in logs: sudo journalctl -u skillsprout -n 20
 □ Swap is active: free -h shows 2G swap
-□ Auto-start enabled: sudo systemctl is-enabled manabu
+□ Auto-start enabled: sudo systemctl is-enabled skillsprout
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  🌐 ACCESSING YOUR APP

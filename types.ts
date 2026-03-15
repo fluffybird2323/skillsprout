@@ -8,37 +8,11 @@ export interface Question {
   explanation: string;
 }
 
-export type WidgetType = 'simulation' | 'canvas' | 'sorting' | 'image-editor';
-
-export interface SimulationParam {
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-  targetValue: number; // The correct answer
-  unit?: string;
-}
-
-export interface InteractiveWidget {
-  type: WidgetType;
-  instruction: string;
-  // For Simulation (e.g. Camera ISO, Physics)
-  params?: SimulationParam[];
-  feedback: string; // What to say when they get it right
-  // For Sorting (e.g. Cooking steps, Code order)
-  items?: string[]; // The correct order
-  // For Canvas (e.g. Kanji)
-  backgroundImage?: string; // Optional guide
-  strokeGuide?: string; // Description of what to draw
-}
-
 export interface LessonContent {
   chapterId: string;
-  type: 'quiz' | 'interactive';
+  type: 'quiz';
   intro: string;
   questions: Question[];
-  // Optional fields based on type
-  interactiveConfig?: InteractiveWidget;
 }
 
 export interface Chapter {
@@ -120,8 +94,8 @@ export interface ReviewItem {
 }
 
 export enum AppState {
-  SPLASH, // App entry point
-  AUTH_REQUIRED, // Enforced login/signup
+  SPLASH, // Initial loading splash screen
+  AUTH_REQUIRED, // When user must log in
   ONBOARDING, // Initial empty state
   ADD_COURSE, // Adding a specific course (modal/view)
   GENERATING_COURSE,

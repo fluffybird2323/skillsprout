@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'manabu-secret-key-change-me';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'manabu-refresh-secret-change-me';
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,12 +37,14 @@ export async function POST(req: NextRequest) {
       emoji: userEmoji,
       xp: 0,
       streak: 0,
-      hearts: 5
+      hearts: 10
     };
 
-    const token = jwt.sign({ userId: id }, JWT_SECRET, { expiresIn: '30d' });
+    db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?').run(id);
+    const token = jwt.sign({ userId: id }, JWT_SECRET, { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ userId: id, type: 'refresh' }, JWT_REFRESH_SECRET, { expiresIn: '365d' });
 
-    return NextResponse.json({ user, token });
+    return NextResponse.json({ user, token, refreshToken });
   } catch (error) {
     console.error('Registration error:', error);
     return NextResponse.json({ error: 'Failed to register' }, { status: 500 });

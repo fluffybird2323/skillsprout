@@ -10,12 +10,14 @@ interface GameState {
   courses: Course[];
   activeCourseId: string | null;
   theme: Theme;
-
+  
   // Auth State
   user: User | null;
   token: string | null;
-  login: (user: User, token: string) => void;
+  refreshToken: string | null;
+  login: (user: User, token: string, refreshToken?: string) => void;
   logout: () => void;
+  attemptRefresh: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
 
   // User Profile
@@ -23,6 +25,7 @@ interface GameState {
   streak: number;
   hearts: number;
   lastStudyDate: number | null;
+  lastHeartRefillDate: number | null;
 
   // Session State
   currentLesson: LessonContent | null;
@@ -30,7 +33,7 @@ interface GameState {
   activeChapterId: string | null;
   srsItems: ReviewItem[];
   isReviewSession: boolean;
-
+  
   // Completed Lessons Storage for Review Access
   completedLessons: Map<string, LessonContent>; // chapterId -> lesson content
 
@@ -55,7 +58,7 @@ interface GameState {
   setUnitReferences: (unitId: string, references: UnitReferences) => void;
 
   // Lesson & Progress
-  startLesson: (unitId: string, chapterId: string, forceType?: 'quiz' | 'interactive' | 'resource') => void;
+  startLesson: (unitId: string, chapterId: string) => void;
   startReviewSession: () => void;
   setLessonContent: (content: LessonContent) => void;
   completeLesson: (stars: 0 | 1 | 2 | 3) => void;
@@ -76,6 +79,7 @@ interface GameState {
   // Mechanics
   loseHeart: () => void;
   resetHearts: () => void;
+  checkAndRefillHearts: () => void;
   validateCourseProgress: () => void;
 }
 
@@ -115,21 +119,45 @@ export const useStore = create<GameState>()(
       courses: [],
       activeCourseId: null,
       theme: 'dark', // Default to dark Antigravity theme
-
+      
       // Auth
       user: null,
       token: null,
-      login: (user, token) => set({ user, token }),
-      logout: () => set({ user: null, token: null }),
+      refreshToken: null,
+      login: (user, token, refreshToken) => set({ user, token, refreshToken: refreshToken ?? null }),
+      logout: () => set({ user: null, token: null, refreshToken: null }),
+      attemptRefresh: async () => {
+        const { refreshToken } = get();
+        if (!refreshToken) {
+          set({ user: null, token: null, refreshToken: null });
+          return;
+        }
+        try {
+          const res = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            set({ token: data.token, refreshToken: data.refreshToken });
+          } else {
+            set({ user: null, token: null, refreshToken: null });
+          }
+        } catch {
+          set({ user: null, token: null, refreshToken: null });
+        }
+      },
       updateUser: (updates) => set((state) => ({
         user: state.user ? { ...state.user, ...updates } : null
       })),
 
       xp: 0,
       streak: 0,
-      hearts: 5,
+      hearts: 10,
       lastStudyDate: null,
-
+      lastHeartRefillDate: null,
+      
       currentLesson: null,
       activeUnitId: null,
       activeChapterId: null,
@@ -146,25 +174,25 @@ export const useStore = create<GameState>()(
       setAuthModalOpen: (open) => set({ isAuthModalOpen: open }),
 
       setAppState: (state) => set({ appState: state }),
-
-      toggleTheme: () => set((state) => ({
-        theme: state.theme === 'light' ? 'dark' : 'light'
+      
+      toggleTheme: () => set((state) => ({ 
+        theme: state.theme === 'light' ? 'dark' : 'light' 
       })),
 
       addCourse: (course) => set((state) => {
         const newCourses = [...state.courses, course];
-        return {
+        return { 
           courses: newCourses,
-          activeCourseId: course.id,
+          activeCourseId: course.id, 
           appState: AppState.ROADMAP,
           // Unlock first chapter of first unit
-          activeUnitId: course.units[0].id,
+          activeUnitId: course.units[0].id, 
         };
       }),
 
-      switchCourse: (courseId) => set({
+      switchCourse: (courseId) => set({ 
         activeCourseId: courseId,
-        appState: AppState.ROADMAP
+        appState: AppState.ROADMAP 
       }),
 
       deleteCourse: (courseId) => set((state) => {
@@ -182,7 +210,7 @@ export const useStore = create<GameState>()(
         if (!course) return state;
 
         const newUnits = course.units.filter(u => u.id !== unitId);
-        const newCourses = state.courses.map(c =>
+        const newCourses = state.courses.map(c => 
           c.id === state.activeCourseId ? { ...c, units: newUnits } : c
         );
 
@@ -202,11 +230,11 @@ export const useStore = create<GameState>()(
         // If last unit is complete, unlock the first chapter of the new unit
         const unitToAppend = lastUnitComplete && unit.chapters.length > 0
           ? {
-            ...unit,
-            chapters: unit.chapters.map((ch, idx) =>
-              idx === 0 ? { ...ch, status: 'active' as const } : ch
-            ),
-          }
+              ...unit,
+              chapters: unit.chapters.map((ch, idx) =>
+                idx === 0 ? { ...ch, status: 'active' as const } : ch
+              ),
+            }
           : unit;
 
         const newUnits = [...course.units, unitToAppend];
@@ -226,7 +254,7 @@ export const useStore = create<GameState>()(
               courseId: state.activeCourseId,
               progressData: { units: newUnits }
             }),
-          }).catch(console.error);
+          }).then(res => { if (res.status === 401) get().attemptRefresh(); }).catch(() => {});
         }
 
         return { courses: newCourses, appState: AppState.ROADMAP };
@@ -259,7 +287,7 @@ export const useStore = create<GameState>()(
       startReviewSession: () => {
         const state = get();
         const now = Date.now();
-        const dueItems = state.srsItems.filter(item =>
+        const dueItems = state.srsItems.filter(item => 
           item.courseId === state.activeCourseId && item.nextReviewDate <= now
         );
 
@@ -298,7 +326,7 @@ export const useStore = create<GameState>()(
 
       processAnswer: (questionId, isCorrect) => set((state) => {
         if (!state.currentLesson) return state;
-
+        
         const question = state.currentLesson.questions.find(q => q.id === questionId);
         if (!question || !state.activeCourseId) return state;
 
@@ -310,7 +338,7 @@ export const useStore = create<GameState>()(
         if (existingItemIndex > -1) {
           const item = newItems[existingItemIndex];
           if (isCorrect) {
-            const newInterval = item.interval * 2.5;
+            const newInterval = item.interval * 2.5; 
             newItems[existingItemIndex] = {
               ...item,
               interval: newInterval,
@@ -328,7 +356,7 @@ export const useStore = create<GameState>()(
             id: `srs-${Date.now()}-${Math.random()}`,
             courseId: state.activeCourseId,
             question: question,
-            interval: 3,
+            interval: 3, 
             nextReviewDate: now + (3 * oneDay),
             easeFactor: 2.5
           });
@@ -340,8 +368,8 @@ export const useStore = create<GameState>()(
       completeLesson: (stars) => set((state) => {
         if (state.isReviewSession) {
           return {
-            xp: state.xp + 15,
-            appState: AppState.LESSON_COMPLETE
+             xp: state.xp + 15,
+             appState: AppState.LESSON_COMPLETE
           };
         }
 
@@ -350,10 +378,10 @@ export const useStore = create<GameState>()(
         let finalUnits: Unit[] = [];
         const newCourses = state.courses.map(course => {
           if (course.id !== state.activeCourseId) return course;
-
+          
           const newUnits = course.units.map(unit => {
             if (unit.id !== state.activeUnitId) return unit;
-
+            
             const newChapters = unit.chapters.map((chapter) => {
               if (chapter.id === state.activeChapterId) {
                 // Validate status transition
@@ -388,15 +416,15 @@ export const useStore = create<GameState>()(
             // Only unlock next chapter if it's currently locked
             const currentIndex = unit.chapters.findIndex(c => c.id === state.activeChapterId);
             if (currentIndex !== -1 && currentIndex < unit.chapters.length - 1) {
-              const nextChapter = newChapters[currentIndex + 1];
-              // CRITICAL FIX: Only change status from 'locked' to 'active'
-              // Never overwrite 'completed' or 'active' status
-              if (nextChapter.status === 'locked') {
-                newChapters[currentIndex + 1] = {
-                  ...nextChapter,
-                  status: 'active' as const
-                };
-              }
+               const nextChapter = newChapters[currentIndex + 1];
+               // CRITICAL FIX: Only change status from 'locked' to 'active'
+               // Never overwrite 'completed' or 'active' status
+               if (nextChapter.status === 'locked') {
+                 newChapters[currentIndex + 1] = {
+                   ...nextChapter,
+                   status: 'active' as const
+                 };
+               }
             }
 
             return { ...unit, chapters: newChapters };
@@ -409,12 +437,12 @@ export const useStore = create<GameState>()(
           if (allChaptersComplete) {
             // Check if there's a next unit in the sequence
             if (activeUnitIndex < newUnits.length - 1) {
-              const nextUnit = newUnits[activeUnitIndex + 1];
-              // CRITICAL FIX: Only unlock if the first chapter is 'locked'
-              // Don't overwrite 'active' or 'completed' status
-              if (nextUnit.chapters.length > 0 && nextUnit.chapters[0].status === 'locked') {
-                nextUnit.chapters[0] = { ...nextUnit.chapters[0], status: 'active' };
-              }
+               const nextUnit = newUnits[activeUnitIndex + 1];
+               // CRITICAL FIX: Only unlock if the first chapter is 'locked'
+               // Don't overwrite 'active' or 'completed' status
+               if (nextUnit.chapters.length > 0 && nextUnit.chapters[0].status === 'locked') {
+                 nextUnit.chapters[0] = { ...nextUnit.chapters[0], status: 'active' };
+               }
             } else {
               // This is the last unit - check if there are any extended units with all locked chapters
               // This handles the case where user extended the path after completing the course
@@ -430,7 +458,7 @@ export const useStore = create<GameState>()(
               }
             }
           }
-
+          
           finalUnits = newUnits;
           return { ...course, units: newUnits, totalXp: course.totalXp + 10 };
         });
@@ -447,27 +475,27 @@ export const useStore = create<GameState>()(
               courseId: state.activeCourseId,
               progressData: { units: finalUnits }
             }),
-          }).catch(console.error);
+          }).then(res => { if (res.status === 401) get().attemptRefresh(); }).catch(() => {});
         }
 
-        const today = new Date().setHours(0, 0, 0, 0);
-        const last = state.lastStudyDate ? new Date(state.lastStudyDate).setHours(0, 0, 0, 0) : 0;
+        const today = new Date().setHours(0,0,0,0);
+        const last = state.lastStudyDate ? new Date(state.lastStudyDate).setHours(0,0,0,0) : 0;
         let newStreak = state.streak;
         if (today > last) {
-          if (today - last === 86400000) {
+          if (today - last === 86400000) { 
             newStreak += 1;
           } else {
             newStreak = 1;
           }
         }
-
+        
         // Store the completed lesson for future review access
         const newCompletedLessons = new Map(state.completedLessons);
         if (state.currentLesson && state.activeChapterId) {
           newCompletedLessons.set(state.activeChapterId, state.currentLesson);
           console.log(`Stored completed lesson for chapter ${state.activeChapterId} with ${state.currentLesson.questions.length} questions`);
         }
-
+        
         return {
           courses: newCourses,
           xp: state.xp + (10 + stars * 5),
@@ -478,12 +506,41 @@ export const useStore = create<GameState>()(
         };
       }),
 
-      loseHeart: () => set((state) => {
-        const newHearts = Math.max(0, state.hearts - 1);
-        return { hearts: newHearts };
-      }),
+      loseHeart: () => {
+        const newHearts = Math.max(0, get().hearts - 1);
+        set({ hearts: newHearts });
+        if (newHearts === 0) {
+          const { token } = get();
+          if (token) {
+            fetch('/api/user/hearts', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ hearts: 0 }),
+            }).catch(() => {});
+          }
+        }
+      },
 
-      resetHearts: () => set({ hearts: 5 }),
+      resetHearts: () => set({ hearts: 10 }),
+
+      checkAndRefillHearts: () => {
+        const { lastHeartRefillDate, hearts, token } = get();
+        const today = new Date().setHours(0, 0, 0, 0);
+        const lastRefill = lastHeartRefillDate
+          ? new Date(lastHeartRefillDate).setHours(0, 0, 0, 0)
+          : 0;
+
+        if (today > lastRefill) {
+          set({ hearts: 10, lastHeartRefillDate: Date.now() });
+          if (hearts < 10 && token) {
+            fetch('/api/user/hearts', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ hearts: 10 }),
+            }).catch(() => {});
+          }
+        }
+      },
 
       validateCourseProgress: () => set((state) => {
         if (!state.activeCourseId) return state;
@@ -502,11 +559,11 @@ export const useStore = create<GameState>()(
 
             // Check chapter continuity within unit
             for (let j = 0; j < newChapters.length - 1; j++) {
-              if (newChapters[j].status === 'completed' && newChapters[j + 1].status === 'locked') {
-                newChapters[j + 1] = { ...newChapters[j + 1], status: 'active' };
+              if (newChapters[j].status === 'completed' && newChapters[j+1].status === 'locked') {
+                newChapters[j+1] = { ...newChapters[j+1], status: 'active' };
                 unitChanged = true;
                 courseChanged = true;
-                console.log(`Auto-unlocking chapter ${newChapters[j + 1].title}`);
+                console.log(`Auto-unlocking chapter ${newChapters[j+1].title}`);
               }
             }
 
@@ -519,14 +576,14 @@ export const useStore = create<GameState>()(
             // If this unit is fully complete (all chapters completed)
             const updatedUnit = newUnits[i]; // Use updated unit
             const isUnitComplete = updatedUnit.chapters.every(c => c.status === 'completed');
-
+            
             if (isUnitComplete && i < newUnits.length - 1) {
-              const nextUnit = newUnits[i + 1];
+              const nextUnit = newUnits[i+1];
               if (nextUnit.chapters.length > 0 && nextUnit.chapters[0].status === 'locked') {
                 // Unlock first chapter of next unit
                 const nextUnitChapters = [...nextUnit.chapters];
                 nextUnitChapters[0] = { ...nextUnitChapters[0], status: 'active' };
-                newUnits[i + 1] = { ...nextUnit, chapters: nextUnitChapters };
+                newUnits[i+1] = { ...nextUnit, chapters: nextUnitChapters };
                 courseChanged = true;
                 console.log(`Auto-unlocking unit ${nextUnit.title}`);
               }
@@ -556,7 +613,7 @@ export const useStore = create<GameState>()(
       startReviewExercise: () => {
         const state = get();
         const allCompletedLessons = Array.from(state.completedLessons.values());
-
+        
         if (allCompletedLessons.length === 0) {
           console.log('No completed lessons available for review exercise');
           return;
@@ -564,7 +621,7 @@ export const useStore = create<GameState>()(
 
         // Collect all questions from completed lessons
         const allQuestions = allCompletedLessons.flatMap(lesson => lesson.questions);
-
+        
         if (allQuestions.length === 0) {
           console.log('No questions available in completed lessons');
           return;
@@ -583,7 +640,7 @@ export const useStore = create<GameState>()(
         };
 
         console.log(`Created review exercise with ${selectedQuestions.length} questions from ${allCompletedLessons.length} completed lessons`);
-
+        
         set({
           currentLesson: reviewExercise,
           isReviewSession: true,
@@ -601,22 +658,22 @@ export const useStore = create<GameState>()(
             if (typeof window === 'undefined') {
               return null;
             }
-
+            
             const storedValue = localStorage.getItem(name);
             if (!storedValue) return null;
 
             const parsed = JSON.parse(storedValue);
-
+            
             // Deserialize completedLessons Map
             if (parsed.state && parsed.state.completedLessons && typeof parsed.state.completedLessons === 'object') {
               parsed.state.completedLessons = new Map(Object.entries(parsed.state.completedLessons));
             }
-
+            
             // Validate the stored state
             if (parsed.state && parsed.state.courses && Array.isArray(parsed.state.courses)) {
               const validatedCourses = [];
               const errors = [];
-
+              
               for (const course of parsed.state.courses) {
                 const validation = storageValidator.validateCourse(course);
                 if (validation.isValid) {
@@ -624,7 +681,7 @@ export const useStore = create<GameState>()(
                 } else {
                   console.warn(`Course validation failed: ${validation.errors.join(', ')}`);
                   errors.push({ courseId: course.id, errors: validation.errors });
-
+                  
                   // Attempt recovery
                   const recoveryResult = await storageRecovery.recoverCourse(course, course.id);
                   if (recoveryResult.success && recoveryResult.recoveredData) {
@@ -633,26 +690,26 @@ export const useStore = create<GameState>()(
                   }
                 }
               }
-
+              
               if (errors.length > 0) {
                 console.warn(`Storage validation found ${errors.length} corrupted courses, recovered ${validatedCourses.length}`);
               }
-
+              
               // Replace courses with validated ones
               parsed.state.courses = validatedCourses;
             }
-
+            
             return parsed;
           } catch (error) {
             console.error('Storage validation error:', error);
-
+            
             // If parsing fails completely, attempt to recover
             if (error instanceof SyntaxError && typeof window !== 'undefined') {
               console.warn('Storage data is corrupted (SyntaxError), clearing storage');
               localStorage.removeItem(name);
               return null;
             }
-
+            
             return null;
           }
         },
@@ -662,21 +719,21 @@ export const useStore = create<GameState>()(
             if (typeof window === 'undefined') {
               return;
             }
-
+            
             // Create a copy for serialization
             const serializedValue = JSON.parse(JSON.stringify(value));
-
+            
             // Serialize completedLessons Map to plain object for JSON storage
             if (serializedValue.state && serializedValue.state.completedLessons) {
               serializedValue.state.completedLessons = Object.fromEntries(
                 Array.from(value.state.completedLessons.entries())
               );
             }
-
+            
             localStorage.setItem(name, JSON.stringify(serializedValue));
           } catch (error) {
             console.error('Storage write error:', error);
-
+            
             // Handle quota exceeded or other storage errors
             if (error instanceof Error && typeof window !== 'undefined') {
               if (error.name === 'QuotaExceededError') {
@@ -704,7 +761,7 @@ export const useStore = create<GameState>()(
         return (state, error) => {
           if (error) {
             console.error('Storage rehydration error:', error);
-
+            
             // If there's a hydration error, reset to clean state
             if (state) {
               state.setAppState(AppState.ONBOARDING);
@@ -713,7 +770,7 @@ export const useStore = create<GameState>()(
               state.currentLesson = null;
               state.activeUnitId = null;
               state.activeChapterId = null;
-
+              
               console.warn('Reset app to clean state due to storage corruption');
             }
           }

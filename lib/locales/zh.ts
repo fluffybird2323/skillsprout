@@ -47,7 +47,7 @@ export default {
   },
   common: {
     loading: "加载中...",
-    initializing: "正在初始化协议",
+    initializing: "正在构建路径",
     error: "错误",
     retry: "重试",
     cancel: "取消",
@@ -191,7 +191,11 @@ export default {
       question1: "{{chapter}} 的主要概念是什么？",
       question2: "{{topic}} 的关键原则是 ___。",
       explanation1: "这个问题有助于评估对 {{chapter}} 的理解。",
-      explanation2: "这测试了对基本概念的记忆。"
+      explanation2: "这测试了对基本概念的记忆。",
+      optionA: "选项 A",
+      optionB: "选项 B",
+      optionC: "选项 C",
+      optionD: "选项 D"
     },
     error: "课程错误",
     corrupted: "本课似乎不完整或已损坏。",
@@ -216,6 +220,14 @@ export default {
     incorrect: "错误",
     correctAnswer: "正确答案：",
     tip: "提示：",
+    revisionRound: "复习轮次",
+    completeSubtitle: "保持势头",
+    accuracy: "准确率",
+    streak: "连续天数",
+    lessonFailed: "课程失败",
+    failedDescription: "答错太多。请复习材料后再试一次。",
+    wrongAnswers: "道错误答案",
+    tryAgain: "重试",
     tipDescription: "遇到困难？查看单元的参考资料以获取更多学习资源。"
   },
   roadmap: {
@@ -237,6 +249,7 @@ export default {
     unit: "单元",
     referenceMaterials: "参考资料",
     extending: "正在扩展...",
+    completeToExtend: "完成路径以扩展",
     extendPath: "扩展路径",
     thinking: "正在思考...",
     whereNext: "下一步去哪？",
