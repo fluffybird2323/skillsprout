@@ -215,7 +215,7 @@ export class StorageValidator {
         return { isValid: false, errors, warnings };
       }
 
-      if (!content.type || !['quiz', 'interactive', 'resource'].includes(content.type)) {
+      if (!content.type || !['quiz', 'resource'].includes(content.type)) {
         errors.push(`Lesson type is invalid: ${content.type}`);
         return { isValid: false, errors, warnings };
       }

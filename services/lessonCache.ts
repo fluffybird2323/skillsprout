@@ -337,7 +337,7 @@ class LessonCacheService {
 
         // Delete all variations of this lesson
         // IDB doesn't support prefix deletion easily, so we just delete known variations
-        const keysToDelete = [key, `${key}-quiz`, `${key}-interactive`, `${key}-resource`];
+        const keysToDelete = [key, `${key}-quiz`, `${key}-resource`];
         await Promise.all(keysToDelete.map(k => store.delete(k)));
         await tx.done;
       } catch (error) {

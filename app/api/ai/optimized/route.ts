@@ -95,35 +95,6 @@ Return simple JSON:
 }`;
   }
 
-  if (lessonType === 'interactive') {
-    return `Create a simple interactive lesson for "${chapterTitle}" (Topic: ${topic}, Category: ${category}).
-${contextSection}
-
-Include a basic interactive element (simulation or activity) and 2-3 questions.
-Keep it lightweight and fast to generate.
-
-IMPORTANT: Focus primarily on the specific "${topic}" and "${chapterTitle}". The Category (${category}) is just a guide - if it seems unrelated, ignore it and follow the Topic.
-
-Return simple JSON:
-{
-  "intro": "Brief engaging introduction",
-  "interactiveConfig": {
-    "type": "simulation",
-    "instruction": "What to do",
-    "feedback": "Great job!"
-  },
-  "questions": [
-    {
-      "type": "multiple-choice",
-      "question": "Question about the activity",
-      "options": ["A", "B", "C", "D"],
-      "correctAnswer": "A",
-      "explanation": "Explanation"
-    }
-  ]
-}`;
-  }
-
   // Default to quiz
   return buildOptimizedPrompt(topic, chapterTitle, 'quiz', context, locale);
 }
@@ -166,26 +137,6 @@ function getFallbackResponse(lessonType: string): any {
           options: ["Option A", "Option B", "Option C", "Option D"],
           correctAnswer: "Option A",
           explanation: "This is the correct answer because it's the most accurate."
-        }
-      ]
-    };
-  }
-
-  if (lessonType === 'interactive') {
-    return {
-      intro: "Try this interactive exercise.",
-      interactiveConfig: {
-        type: "simulation",
-        instruction: "Complete the activity",
-        feedback: "Well done!"
-      },
-      questions: [
-        {
-          type: "multiple-choice",
-          question: "What did you learn from the activity?",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "This demonstrates the key concept."
         }
       ]
     };
