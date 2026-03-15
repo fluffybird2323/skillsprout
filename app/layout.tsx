@@ -48,7 +48,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.className}>
-      <body className="font-sans overscroll-y-none">{children}</body>
+      <body className="font-sans overscroll-y-none">
+        {children}
+        <footer className="fixed bottom-0 left-0 right-0 z-0 py-2 text-center text-[11px] text-gray-400 bg-transparent pointer-events-none">
+          <span className="pointer-events-auto">
+            <a href="/terms" className="underline hover:text-gray-600 mx-2">Terms of Service</a>
+            <a href="/privacy" className="underline hover:text-gray-600 mx-2">Privacy Policy</a>
+          </span>
+        </footer>
+      </body>
     </html>
   )
 }
