@@ -59,10 +59,12 @@ export async function GET(req: NextRequest) {
         userRow = db.prepare('SELECT * FROM users WHERE id = ?').get(userRow.id);
       } else {
         const id = uuidv4();
+        const EMOJIS = ['🚀', '🧠', '🎨', '🧪', '🧬', '💻', '🌟', '🔥', '🌈', '⚡️', '🦄'];
+        const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
         db.prepare(`
           INSERT INTO users (id, email, full_name, password_hash, emoji, google_id)
           VALUES (?, ?, ?, ?, ?, ?)
-        `).run(id, email, name || email.split('@')[0], 'GOOGLE_OAUTH', '👤', googleId);
+        `).run(id, email, name || email.split('@')[0], 'GOOGLE_OAUTH', randomEmoji, googleId);
         userRow = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       }
     }
