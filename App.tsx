@@ -24,6 +24,27 @@ const App: React.FC = () => {
     setMounted(true);
   }, []);
 
+  // Handle OAuth redirect params — must run before any state machine logic
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('google_token') ?? params.get('x_token');
+    const refresh = params.get('google_refresh') ?? params.get('x_refresh');
+    const userParam = params.get('google_user') ?? params.get('x_user');
+
+    if (token && userParam) {
+      try {
+        const userData = JSON.parse(decodeURIComponent(userParam));
+        useStore.getState().login(userData, token, refresh ?? undefined);
+        window.history.replaceState({}, '', '/');
+        const { courses } = useStore.getState();
+        useStore.getState().setAppState(courses.length === 0 ? AppState.ONBOARDING : AppState.ROADMAP);
+      } catch (e) {
+        console.warn('Failed to parse OAuth redirect params', e);
+        window.history.replaceState({}, '', '/');
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle shared course ingress
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);

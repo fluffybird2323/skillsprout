@@ -5,7 +5,7 @@ import { AppState } from '../types';
 
 export const Splash: React.FC = () => {
     const { t } = useTranslation();
-    const { setAppState, login } = useStore();
+    const { setAppState } = useStore();
     const [phase, setPhase] = useState(0);
 
     // Daily heart refill — on launch and at midnight if app stays open
@@ -26,30 +26,6 @@ export const Splash: React.FC = () => {
         return () => clearTimeout(timer);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Consume OAuth redirect params (Google, X, etc.)
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-
-        const tokenParam = params.get('google_token') ?? params.get('x_token');
-        const refreshParam = params.get('google_refresh') ?? params.get('x_refresh');
-        const userParam = params.get('google_user') ?? params.get('x_user');
-
-        if (tokenParam && userParam) {
-            try {
-                const userData = JSON.parse(decodeURIComponent(userParam));
-                login(userData, tokenParam, refreshParam ?? undefined);
-            } catch (e) {
-                console.warn('Failed to parse OAuth params', e);
-            }
-            window.history.replaceState({}, '', '/');
-        }
-
-        const authError = params.get('auth_error');
-        if (authError) {
-            console.warn('OAuth error:', authError);
-            window.history.replaceState({}, '', '/');
-        }
-    }, [login]);
 
     useEffect(() => {
         const navigate = () => {
