@@ -5,7 +5,7 @@ import { AppState } from '../types';
 
 export const Splash: React.FC = () => {
     const { t } = useTranslation();
-    const { setAppState, user, login } = useStore();
+    const { setAppState, login } = useStore();
     const [phase, setPhase] = useState(0);
 
     // Daily heart refill — on launch and at midnight if app stays open
@@ -52,33 +52,34 @@ export const Splash: React.FC = () => {
     }, [login]);
 
     useEffect(() => {
+        const navigate = () => {
+            const currentUser = useStore.getState().user;
+            if (currentUser) {
+                if (useStore.getState().courses.length === 0) {
+                    setAppState(AppState.ONBOARDING);
+                } else {
+                    setAppState(AppState.ROADMAP);
+                }
+            } else {
+                setAppState(AppState.AUTH_REQUIRED);
+            }
+        };
+
         const timers = [
-            setTimeout(() => setPhase(1), 1500), // icons appear
-            setTimeout(() => setPhase(2), 3000), // tagline appears
+            setTimeout(() => setPhase(1), 1500),
+            setTimeout(() => setPhase(2), 3000),
             setTimeout(() => {
                 setPhase(3);
-                // After 4-5s, check auth and transition
-                setTimeout(() => {
-                    if (user) {
-                        // If logged in but no courses, go to onboarding
-                        if (useStore.getState().courses.length === 0) {
-                            setAppState(AppState.ONBOARDING);
-                        } else {
-                            setAppState(AppState.ROADMAP);
-                        }
-                    } else {
-                        setAppState(AppState.AUTH_REQUIRED);
-                    }
-                }, 1000);
+                setTimeout(navigate, 1000);
             }, 4000)
         ];
 
         return () => timers.forEach(clearTimeout);
-    }, [setAppState, user]);
+    }, [setAppState]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const skipSplash = () => {
-        if (user) {
-            // If logged in but no courses, go to onboarding
+        const currentUser = useStore.getState().user;
+        if (currentUser) {
             if (useStore.getState().courses.length === 0) {
                 setAppState(AppState.ONBOARDING);
             } else {
