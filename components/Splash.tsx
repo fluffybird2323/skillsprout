@@ -138,6 +138,27 @@ export const Splash: React.FC = () => {
                     </p>
                 </div>
 
+                {/* Legal links */}
+                <div
+                    className="absolute bottom-6 left-0 right-0 flex justify-center gap-4"
+                    onClick={e => e.stopPropagation()}
+                >
+                    <a
+                        href="/terms"
+                        target="_blank"
+                        className="text-[11px] text-gravity-text-sub-light dark:text-gravity-text-sub-dark underline hover:text-gravity-blue transition-colors"
+                    >
+                        Terms of Service
+                    </a>
+                    <a
+                        href="/privacy"
+                        target="_blank"
+                        className="text-[11px] text-gravity-text-sub-light dark:text-gravity-text-sub-dark underline hover:text-gravity-blue transition-colors"
+                    >
+                        Privacy Policy
+                    </a>
+                </div>
+
             </div>
         </div>
     );

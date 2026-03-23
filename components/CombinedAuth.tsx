@@ -58,7 +58,7 @@ export const CombinedAuth: React.FC = () => {
             <ParticleBackground />
             <Toaster position="top-center" />
 
-            <div className="relative z-10 w-full max-w-md bg-white/70 dark:bg-black/40 backdrop-blur-xl rounded-[32px] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] border border-white/40 dark:border-white/10 transition-colors duration-500">
+            <div className="relative z-10 w-full max-w-md bg-white/70 dark:bg-black/40 backdrop-blur-xl rounded-[32px] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] border border-white/40 dark:border-white/10 transition-colors duration-500 overflow-y-auto max-h-[calc(100vh-3rem)]">
 
                 <div className="flex flex-col items-center mb-8">
                     <img

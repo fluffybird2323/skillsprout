@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Settings, Moon, Sun, Download, X, Globe, ChevronRight, Check } from 'lucide-react';
+import { Settings, Moon, Sun, Download, X, Globe, ChevronRight, Check, FileText } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useTranslation } from 'react-i18next';
 
@@ -194,6 +194,30 @@ export const SettingsMenu: React.FC = () => {
                     </div>
                   </button>
                 )}
+
+                {/* Legal */}
+                <div className="border-t border-gravity-border-light dark:border-gravity-border-dark mt-1 pt-1">
+                  <a
+                    href="/terms"
+                    target="_blank"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-gravity-text-main-light dark:text-gravity-text-main-dark"
+                  >
+                    <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <span className="font-medium">Terms of Service</span>
+                  </a>
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-gravity-text-main-light dark:text-gravity-text-main-dark"
+                  >
+                    <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <span className="font-medium">Privacy Policy</span>
+                  </a>
+                </div>
               </div>
             )}
           </div>
