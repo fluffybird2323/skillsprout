@@ -768,10 +768,6 @@ export const Roadmap: React.FC = () => {
                            {isActive && (
                              <div className="absolute inset-0 rounded-full border border-dotted border-blue-400/40" style={{ margin: '6px' }} />
                            )}
-                           {/* Completed: slow spinning dashed ring */}
-                           {isCompleted && (
-                             <div className="absolute inset-0 rounded-full border border-dashed border-green-300/20 animate-[spin_20s_linear_infinite_reverse]" style={{ margin: '-14px' }} />
-                           )}
                          </div>
 
                          {/* Chapter Circle - Interactive */}
