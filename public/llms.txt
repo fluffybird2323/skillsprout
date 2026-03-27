@@ -1,0 +1,35 @@
+# Manabu
+
+> Manabu is an AI-powered adaptive learning platform that generates complete, gamified courses on any topic in seconds.
+
+## What is Manabu?
+
+Manabu (学ぶ — Japanese for "to learn") is a web application that uses large language models to instantly create structured, interactive learning courses for any subject a user requests. It combines AI-generated content with gamification mechanics (streaks, hearts/lives, XP, leaderboards) to make self-directed learning engaging and effective.
+
+## Core Features
+
+- **Instant Course Generation**: Enter any topic and get a full multi-unit course with chapters, lessons, and quizzes generated in real time
+- **Multiple Question Types**: Multiple choice, fill-in-the-blank, and conceptual lessons
+- **Gamification**: XP points, daily streaks, hearts (lives), and level progression
+- **Progress Persistence**: User progress saved to account across devices
+- **Adaptive Difficulty**: Courses scale from beginner to advanced
+- **Offline Support**: PWA with IndexedDB lesson caching for offline access
+- **Multilingual**: UI available in English, Japanese, Spanish, French, German, Italian, Portuguese, Chinese
+
+## Technology
+
+- Built with Next.js (App Router), React, TypeScript, Tailwind CSS
+- AI content powered by Groq (Llama/Mixtral) and Google Gemini
+- Authentication: email/password, Google OAuth, X (Twitter) OAuth
+- Database: SQLite (better-sqlite3)
+- Deployed on Oracle Cloud Infrastructure
+
+## Audience
+
+Students, professionals, and lifelong learners who want to quickly build knowledge in any domain — from programming and science to languages, history, cooking, and more.
+
+## Pages
+
+- https://manabu.artiestudio.org — Main app (course generation + learning)
+- https://manabu.artiestudio.org/terms — Terms of Service
+- https://manabu.artiestudio.org/privacy — Privacy Policy

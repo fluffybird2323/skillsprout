@@ -5,8 +5,13 @@ import { Viewport } from 'next'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Manabu | Smart Learning Platform',
-  description: 'A next-generation AI learning platform. Generate interactive courses instantly.',
+  title: 'Manabu | AI-Powered Learning Platform',
+  description: 'Generate complete, gamified courses on any topic in seconds. Manabu uses AI to create structured lessons, quizzes, and progress tracking — free.',
+  keywords: ['AI learning', 'online courses', 'AI tutor', 'gamified learning', 'learn anything', 'course generator', 'adaptive learning', 'manabu'],
+  metadataBase: new URL('https://manabu.artiestudio.org'),
+  alternates: {
+    canonical: 'https://manabu.artiestudio.org',
+  },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -15,11 +20,16 @@ export const metadata = {
   },
   openGraph: {
     type: 'website',
-    title: 'Manabu - Interactive Learning',
-    description: 'Generate complete, gamified courses for any topic instantly. Powered by AI.',
+    url: 'https://manabu.artiestudio.org',
+    siteName: 'Manabu',
+    title: 'Manabu — Generate AI Courses on Any Topic',
+    description: 'Enter any topic and get a full interactive course with lessons, quizzes, and gamification instantly. Powered by AI.',
+    locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
+    title: 'Manabu — AI Learning Platform',
+    description: 'Generate complete courses on any topic instantly. Free, gamified, AI-powered.',
   },
   icons: {
     icon: [
