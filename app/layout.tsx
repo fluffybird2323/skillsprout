@@ -65,6 +65,12 @@ export default function RootLayout({
             <a href="/terms" className="underline hover:text-gray-600 mx-2">Terms of Service</a>
             <a href="/privacy" className="underline hover:text-gray-600 mx-2">Privacy Policy</a>
           </span>
+          <span className="pointer-events-auto inline-block ml-4 align-middle">
+            <a href="https://www.producthunt.com/products/manabu?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-manabu" target="_blank" rel="noopener noreferrer">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt="Manabu - Learn anything. AI builds the course. You just show up. | Product Hunt" width="180" height="39" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1145092&theme=light&t=1778580113227" />
+            </a>
+          </span>
         </footer>
       </body>
     </html>
