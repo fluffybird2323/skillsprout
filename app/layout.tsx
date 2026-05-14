@@ -1,6 +1,7 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
 import { Viewport } from 'next'
+import Script from 'next/script'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -58,6 +59,20 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.className}>
+      <head>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-GCHBFP5X4T"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-GCHBFP5X4T');
+          `}
+        </Script>
+      </head>
       <body className="font-sans overscroll-y-none">
         {children}
         <footer className="fixed bottom-0 left-0 right-0 z-0 py-2 text-center text-[11px] text-gray-400 bg-transparent pointer-events-none">
